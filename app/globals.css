@@ -1,0 +1,116 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+body {
+  font-family: var(--font-ibm-plex-sans), sans-serif;
+}
+
+/* --- Logo glitch (page de connexion) ---
+   3 tranches horizontales : l'image <Image> forme la tranche du haut,
+   deux pseudo-éléments (::before/::after) reprennent le même visuel en
+   background-image pour les tranches du milieu et du bas. Chacune est
+   isolée via clip-path et se décale brièvement en translateX toutes les
+   0.5s, avant de revenir à sa position normale. */
+
+.gtf-glitch-logo::before,
+.gtf-glitch-logo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/logo-gtf.png");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  filter: grayscale(1);
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.gtf-glitch-logo::before {
+  clip-path: inset(33.333% 0 33.333% 0);
+}
+
+.gtf-glitch-logo::after {
+  clip-path: inset(66.667% 0 0 0);
+}
+
+.gtf-glitch-slice-top {
+  clip-path: inset(0 0 66.667% 0);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .gtf-glitch-slice-top {
+    animation: gtf-glitch-1 2.5s steps(1) infinite;
+  }
+
+  .gtf-glitch-logo::before {
+    animation: gtf-glitch-2 2.5s steps(1) infinite;
+  }
+
+  .gtf-glitch-logo::after {
+    animation: gtf-glitch-3 2.5s steps(1) infinite;
+  }
+}
+
+@keyframes gtf-glitch-1 {
+  0%,
+  88% {
+    transform: translateX(0);
+  }
+  89% {
+    transform: translateX(-6px);
+  }
+  91% {
+    transform: translateX(4px);
+  }
+  93% {
+    transform: translateX(-8px);
+  }
+  95% {
+    transform: translateX(2px);
+  }
+  97%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes gtf-glitch-2 {
+  0%,
+  90% {
+    transform: translateX(0);
+  }
+  91% {
+    transform: translateX(5px);
+  }
+  93% {
+    transform: translateX(-7px);
+  }
+  95% {
+    transform: translateX(3px);
+  }
+  97%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes gtf-glitch-3 {
+  0%,
+  89% {
+    transform: translateX(0);
+  }
+  90% {
+    transform: translateX(-4px);
+  }
+  92% {
+    transform: translateX(6px);
+  }
+  94% {
+    transform: translateX(-3px);
+  }
+  96%,
+  100% {
+    transform: translateX(0);
+  }
+}

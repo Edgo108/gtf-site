@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npm)",
+      "PowerShell(npm install *)",
+      "PowerShell(npx next build 2>&1 | Select-Object -Last 80)",
+      "PowerShell(npx --yes @next/codemod@canary middleware-to-proxy . 2>&1 | Select-Object -Last 60)",
+      "PowerShell(npx --yes @next/codemod@canary middleware-to-proxy . --force 2>&1 | Select-Object -Last 60)",
+      "PowerShell(Get-ChildItem -Force | Where-Object { $_.Name -match 'middleware|proxy' }; Write-Output \"---content---\"; Get-Content middleware.ts -ErrorAction SilentlyContinue)",
+      "PowerShell(npx next build 2>&1 | Select-Object -Last 40)",
+      "PowerShell(npx eslint . 2>&1 | Select-Object -Last 40)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(npx eslint . 2>&1 | Select-Object -Last 60)",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -Last 60)",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -Last 100)",
+      "PowerShell(npx eslint . 2>&1 | Select-Object -Last 100)",
+      "PowerShell(npx tsc --noEmit 2>&1)",
+      "PowerShell(npx eslint . 2>&1)",
+      "PowerShell(npx eslint components/auth/LoginForm.tsx 2>&1 | Select-Object -Last 40)",
+      "PowerShell(npx eslint \"app/\\(app\\)/profil/page.tsx\" 2>&1)",
+      "PowerShell(npx next build 2>&1 | Select-Object -Last 100)",
+      "PowerShell(npx next build 2>&1 | Select-Object -Last 60)",
+      "PowerShell(npx next build 2>&1 | Select-Object -Last 120)",
+      "PowerShell(npx tsc --noEmit; Write-Output \"EXIT CODE: $LASTEXITCODE\")",
+      "PowerShell(npx eslint . ; Write-Output \"EXIT CODE: $LASTEXITCODE\")",
+      "PowerShell(npx eslint components/zones/InteractiveMap.tsx 2>&1 | Select-Object -Last 60)",
+      "PowerShell(New-Item *)",
+      "PowerShell(Rename-Item *)",
+      "PowerShell(npm run *)"
+    ]
+  }
+}
