@@ -69,12 +69,16 @@ function makeHandleIcon(): L.DivIcon {
   });
 }
 
+// Icônes en forme d'épingle (pointe vers le bas) : l'ancre est près de la
+// pointe, pas au centre — c'est le bas du marqueur qui désigne le point.
+const LAB_ICON_SIZE = 44;
+
 function makeLabIcon(categorie: LabCategorie, statut: LabStatut): L.Icon {
   return L.icon({
     iconUrl: labMarkerIconUrl(categorie),
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-    tooltipAnchor: [0, -17],
+    iconSize: [LAB_ICON_SIZE, LAB_ICON_SIZE],
+    iconAnchor: [LAB_ICON_SIZE / 2, Math.round(LAB_ICON_SIZE * 0.9)],
+    tooltipAnchor: [0, -Math.round(LAB_ICON_SIZE * 0.9)],
     // Statut "raided" : marqueur grisé/désaturé (voir .gtf-lab-raided
     // dans app/globals.css), tout en restant cliquable.
     className: statut === "raided" ? "gtf-lab-raided" : "",
