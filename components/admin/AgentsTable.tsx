@@ -12,6 +12,12 @@ import { GRADES } from "@/lib/constants";
 import { UNITES, UNITE_LABELS } from "@/lib/permissions";
 import type { Profile } from "@/lib/supabase/types";
 
+// Rang du grade : plus élevé = plus haut dans la liste (Commandant → Agent).
+function gradeRank(grade: string): number {
+  const i = GRADES.indexOf(grade as (typeof GRADES)[number]);
+  return i === -1 ? -1 : i;
+}
+
 export function AgentsTable({
   profiles,
   currentUserId,
@@ -23,31 +29,74 @@ export function AgentsTable({
   canManageAgents: boolean;
   canManageUnite: boolean;
 }) {
+  const [query, setQuery] = useState("");
+
+  const q = query.trim().toLowerCase();
+  const visible = profiles
+    .filter((p) => {
+      if (!q) return true;
+      return [p.pseudo, p.grade, p.role, p.unite, UNITE_LABELS[p.unite] ?? ""]
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
+    })
+    // Tri de base : grade décroissant, puis pseudo A→Z.
+    .slice()
+    .sort(
+      (a, b) =>
+        gradeRank(b.grade) - gradeRank(a.grade) ||
+        a.pseudo.localeCompare(b.pseudo, "fr", { sensitivity: "base" }),
+    );
+
   return (
-    <div className="overflow-x-auto rounded-md border border-gtf-border">
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-gtf-border bg-gtf-panel-alt font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
-            <th className="px-4 py-3">Pseudo</th>
-            <th className="px-4 py-3">Grade</th>
-            <th className="px-4 py-3">Rôle</th>
-            <th className="px-4 py-3">Unité</th>
-            <th className="px-4 py-3">Statut</th>
-            {canManageAgents && <th className="px-4 py-3 text-right">Actions</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {profiles.map((profile) => (
-            <AgentRow
-              key={profile.id}
-              profile={profile}
-              isSelf={profile.id === currentUserId}
-              canManageAgents={canManageAgents}
-              canManageUnite={canManageUnite}
-            />
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <div className="mb-3 flex justify-end">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Rechercher un agent…"
+          className="w-full max-w-xs rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+        />
+      </div>
+
+      <div className="overflow-x-auto rounded-md border border-gtf-border">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-gtf-border bg-gtf-panel-alt font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
+              <th className="px-4 py-3">Pseudo</th>
+              <th className="px-4 py-3">Grade</th>
+              <th className="px-4 py-3">Rôle</th>
+              <th className="px-4 py-3">Unité</th>
+              <th className="px-4 py-3">Statut</th>
+              {canManageAgents && (
+                <th className="px-4 py-3 text-right">Actions</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((profile) => (
+              <AgentRow
+                key={profile.id}
+                profile={profile}
+                isSelf={profile.id === currentUserId}
+                canManageAgents={canManageAgents}
+                canManageUnite={canManageUnite}
+              />
+            ))}
+            {visible.length === 0 && (
+              <tr>
+                <td
+                  colSpan={canManageAgents ? 6 : 5}
+                  className="px-4 py-6 text-center text-gtf-text-muted"
+                >
+                  Aucun agent ne correspond à « {query} ».
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
