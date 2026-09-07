@@ -72,15 +72,28 @@ function makeHandleIcon(): L.DivIcon {
 // Icônes en forme d'épingle (pointe vers le bas). Les fichiers fournis
 // sont au format portrait (~537×681, ratio ~0.79) et la pointe touche
 // quasiment le bas de l'image → l'ancre est en bas-centre.
+// Taille à zoom max ; divisée par 1.5 à chaque cran de dézoom (voir
+// labScaleForZoom / l'écouteur "zoomend").
 const LAB_ICON_W = 44;
 const LAB_ICON_H = 56;
 
-function makeLabIcon(categorie: LabCategorie, statut: LabStatut): L.Icon {
+function labScaleForZoom(map: L.Map): number {
+  return 1 / Math.pow(1.5, map.getMaxZoom() - map.getZoom());
+}
+
+function makeLabIcon(
+  categorie: LabCategorie,
+  statut: LabStatut,
+  scale = 1,
+): L.Icon {
+  const w = Math.max(6, Math.round(LAB_ICON_W * scale));
+  const h = Math.max(8, Math.round(LAB_ICON_H * scale));
+  const tip = Math.round(2 * scale);
   return L.icon({
     iconUrl: labMarkerIconUrl(categorie),
-    iconSize: [LAB_ICON_W, LAB_ICON_H],
-    iconAnchor: [LAB_ICON_W / 2, LAB_ICON_H - 2],
-    tooltipAnchor: [0, -(LAB_ICON_H - 2)],
+    iconSize: [w, h],
+    iconAnchor: [w / 2, h - tip],
+    tooltipAnchor: [0, -(h - tip)],
     // Statut "raided" : marqueur grisé/désaturé (voir .gtf-lab-raided
     // dans app/globals.css), tout en restant cliquable.
     className: statut === "raided" ? "gtf-lab-raided" : "",
@@ -101,12 +114,13 @@ export function InteractiveMap({
   const drawLayerRef = useRef<L.LayerGroup | null>(null);
   const labsLayerRef = useRef<L.LayerGroup | null>(null);
   const labDraftLayerRef = useRef<L.LayerGroup | null>(null);
-  const labEditMarkerRef = useRef<L.Marker | null>(null);
   const modeRef = useRef<Mode>("view");
   const drawingPointsRef = useRef<ZonePoint[]>([]);
   const labEditPosRef = useRef<ZonePoint | null>(null);
 
   const [layer, setLayer] = useState<MapLayerKey>("atlas");
+  // Facteur d'échelle des icônes labo selon le zoom (1 au zoom max).
+  const [labIconScale, setLabIconScale] = useState(1);
   const [gangs, setGangs] = useState<Gang[]>([]);
   const [zones, setZones] = useState<SensitiveZone[]>([]);
   const [labMarkers, setLabMarkers] = useState<LabMarker[]>([]);
@@ -282,6 +296,11 @@ export function InteractiveMap({
           }
         });
 
+        // Icônes labo : taille pleine au zoom max, /1.5 à chaque dézoom.
+        const syncLabScale = () => setLabIconScale(labScaleForZoom(map));
+        syncLabScale();
+        map.on("zoomend", syncLabScale);
+
         mapRef.current = map;
       });
     };
@@ -359,7 +378,7 @@ export function InteractiveMap({
       const isLockedByOther = !!lock && lock.locked_by !== currentUserId;
 
       const m = L.marker([marker.position.y, marker.position.x], {
-        icon: makeLabIcon(marker.categorie, marker.statut),
+        icon: makeLabIcon(marker.categorie, marker.statut, labIconScale),
       });
 
       if (isLockedByOther) {
@@ -376,7 +395,7 @@ export function InteractiveMap({
 
       m.addTo(group);
     }
-  }, [labMarkers, labLocks, mode, editingLabId, currentUserId]);
+  }, [labMarkers, labLocks, mode, editingLabId, currentUserId, labIconScale]);
 
   // --- Aperçu du dessin d'une nouvelle zone -----------------------------
 
@@ -446,15 +465,19 @@ export function InteractiveMap({
 
     if (mode === "lab-placing" && labPlacePos) {
       L.marker([labPlacePos.y, labPlacePos.x], {
-        icon: makeLabIcon(labPlaceCat, labPlaceStatut),
+        icon: makeLabIcon(labPlaceCat, labPlaceStatut, labIconScale),
         interactive: false,
         opacity: 0.85,
       }).addTo(group);
     }
-  }, [mode, labPlacePos, labPlaceCat, labPlaceStatut]);
+  }, [mode, labPlacePos, labPlaceCat, labPlaceStatut, labIconScale]);
 
   // --- Édition d'un labo : marqueur déplaçable (créé une seule fois) ----
 
+  // Marqueur déplaçable pendant l'édition. Redessiné à chaque changement
+  // de catégorie / statut / zoom (griser immédiatement si passage en
+  // "raided") — la position en cours est conservée via labEditPosRef, et
+  // ces changements n'arrivent jamais pendant un glissement actif.
   useEffect(() => {
     const group = labDraftLayerRef.current;
     if (!group || mode !== "lab-editing" || !editingLabId) return;
@@ -464,10 +487,9 @@ export function InteractiveMap({
     if (!start) return;
 
     const marker = L.marker([start.y, start.x], {
-      icon: makeLabIcon(labEditCat, labEditStatut),
+      icon: makeLabIcon(labEditCat, labEditStatut, labIconScale),
       draggable: true,
     }).addTo(group);
-    labEditMarkerRef.current = marker;
 
     marker.on("dragend", () => {
       setLabEditPos(latLngToPoint(marker.getLatLng()));
@@ -475,18 +497,8 @@ export function InteractiveMap({
 
     return () => {
       group.clearLayers();
-      labEditMarkerRef.current = null;
     };
-  }, [mode, editingLabId, labEditCat, labEditStatut]);
-
-  // Met à jour l'icône du marqueur en cours d'édition quand la catégorie
-  // ou le statut change (griser immédiatement si passage en "raided"),
-  // sans recréer le marqueur (drag préservé).
-  useEffect(() => {
-    if (mode === "lab-editing" && labEditMarkerRef.current) {
-      labEditMarkerRef.current.setIcon(makeLabIcon(labEditCat, labEditStatut));
-    }
-  }, [mode, labEditCat, labEditStatut]);
+  }, [mode, editingLabId, labEditCat, labEditStatut, labIconScale]);
 
   // --- Actions : dessin d'une nouvelle zone ---------------------------
 
