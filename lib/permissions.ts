@@ -6,7 +6,7 @@
 // ces helpers servent à masquer/désactiver les actions dans l'interface
 // et à renvoyer des messages d'erreur clairs côté Server Actions.
 
-export const UNITES = ["ID", "GTF", "SASP", "DOJ"] as const;
+export const UNITES = ["ID", "GTF", "SASP", "DOJ", "EM"] as const;
 export type Unite = (typeof UNITES)[number];
 
 export const UNITE_LABELS: Record<Unite, string> = {
@@ -14,6 +14,7 @@ export const UNITE_LABELS: Record<Unite, string> = {
   GTF: "GTF — Gang Task Force",
   SASP: "SASP — Unité partenaire",
   DOJ: "DOJ — Department of Justice",
+  EM: "EM — État-Major",
 };
 
 export function isUnite(value: unknown): value is Unite {
@@ -34,6 +35,8 @@ export type PermissionSection =
 const WRITE_MATRIX: Record<Unite, Record<PermissionSection, boolean>> = {
   ID: { enquetes: true, mandats: true, gangs: true, zones: true, annonces: true },
   GTF: { enquetes: true, mandats: true, gangs: true, zones: true, annonces: true },
+  // État-Major : lecture + écriture absolument partout.
+  EM: { enquetes: true, mandats: true, gangs: true, zones: true, annonces: true },
   SASP: {
     enquetes: false,
     mandats: false,

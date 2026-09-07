@@ -26,7 +26,7 @@ alter table public.profiles
 alter table public.profiles drop constraint if exists profiles_unite_check;
 alter table public.profiles
   add constraint profiles_unite_check
-  check (unite in ('ID', 'GTF', 'SASP', 'DOJ'));
+  check (unite in ('ID', 'GTF', 'SASP', 'DOJ', 'EM'));
 
 -- Filet de sécurité si la colonne existait déjà sans valeur (ré-exécution).
 update public.profiles set unite = 'SASP' where unite is null;
@@ -117,6 +117,7 @@ for each row execute function public.enforce_profile_cross_update();
 --  ------|----------|---------|-------|-------|-------------
 --  ID    |   R/W    |   R/W   |  R/W  |  R/W  |    R/W
 --  GTF   |   R/W    |   R/W   |  R/W  |  R/W  |    R/W
+--  EM    |   R/W    |   R/W   |  R/W  |  R/W  |    R/W
 --  SASP  |    R     |    R    |   R   |   R   |     R
 --  DOJ   |    R     |   R/W   |   R   |   R   |     R
 --
@@ -135,7 +136,8 @@ $$;
 
 grant execute on function public.mon_unite() to authenticated;
 
--- Écriture "opérationnelle" : enquêtes, gangs, gang_members, zones, annonces.
+-- Écriture "opérationnelle" : enquêtes, gangs, gang_members, zones,
+-- annonces, marqueurs laboratoire. ID, GTF + EM (État-Major).
 create or replace function public.unite_peut_ecrire_operationnel()
 returns boolean
 language sql
@@ -143,10 +145,10 @@ stable
 security invoker
 set search_path = public
 as $$
-  select public.is_admin() or public.mon_unite() in ('ID', 'GTF');
+  select public.is_admin() or public.mon_unite() in ('ID', 'GTF', 'EM');
 $$;
 
--- Écriture "mandats" : ID, GTF + DOJ.
+-- Écriture "mandats" : ID, GTF, DOJ + EM (État-Major).
 create or replace function public.unite_peut_ecrire_mandats()
 returns boolean
 language sql
@@ -154,7 +156,7 @@ stable
 security invoker
 set search_path = public
 as $$
-  select public.is_admin() or public.mon_unite() in ('ID', 'GTF', 'DOJ');
+  select public.is_admin() or public.mon_unite() in ('ID', 'GTF', 'DOJ', 'EM');
 $$;
 
 grant execute on function public.unite_peut_ecrire_operationnel() to authenticated;

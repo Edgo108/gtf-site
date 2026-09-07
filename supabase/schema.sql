@@ -10,7 +10,7 @@ create table public.profiles (
   -- 3e dimension de permissions (rôle/unité). Détail des droits associés
   -- et policies RLS correspondantes : supabase/permissions_unite.sql.
   -- Tout compte (admin inclus) démarre en 'SASP', à réattribuer ensuite.
-  unite text not null default 'SASP' check (unite in ('ID', 'GTF', 'SASP', 'DOJ')),
+  unite text not null default 'SASP' check (unite in ('ID', 'GTF', 'SASP', 'DOJ', 'EM')),
   doit_changer_mdp boolean not null default true,
   created_at timestamptz not null default now()
 );
