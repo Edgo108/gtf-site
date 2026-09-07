@@ -13,11 +13,13 @@ nom** (`arme.png`, `cocaine.png`, `meth.png`).
 
 Recommandations :
 
-- PNG **carré** avec fond transparent (les images actuelles font 724×724)
-- forme d'**épingle pointant vers le bas** : l'icône est ancrée près de
-  sa pointe basse (≈ 90 % de la hauteur), affichée à 44 px sur la carte —
-  voir `makeLabIcon` / `LAB_ICON_SIZE` dans
-  `components/zones/InteractiveMap.tsx` pour ajuster taille et ancrage
+- PNG avec fond transparent, format **portrait** (les images actuelles
+  font ~537×681, ratio ~0.79)
+- forme d'**épingle pointant vers le bas**, la pointe touchant quasiment
+  le bas de l'image : l'icône est ancrée en bas-centre, affichée en
+  44×56 px sur la carte — voir `makeLabIcon` / `LAB_ICON_W` / `LAB_ICON_H`
+  dans `components/zones/InteractiveMap.tsx` pour ajuster taille et
+  ancrage (si tu changes le ratio des images, ajuste `LAB_ICON_H`)
 - couleurs pleines : le statut « raid effectué » applique automatiquement
   un filtre `grayscale` + opacité réduite (`.gtf-lab-raided` dans
   `app/globals.css`), inutile de fournir une variante grisée
