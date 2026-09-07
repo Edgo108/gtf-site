@@ -100,6 +100,41 @@ function makeLabIcon(
   });
 }
 
+// --- Filtres d'affichage de la carte ---------------------------------
+
+const DEFAULT_FILTERS = {
+  zoneVente: true,
+  zoneInfluence: true,
+  labArme: true,
+  labCocaine: true,
+  labMeth: true,
+  labActif: true,
+  labRaided: true,
+};
+type FilterKey = keyof typeof DEFAULT_FILTERS;
+
+function FilterCheckbox({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 py-0.5 text-xs text-gtf-text">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="h-3.5 w-3.5 accent-gtf-blue-hover"
+      />
+      {label}
+    </label>
+  );
+}
+
 export function InteractiveMap({
   currentUserId,
   canWrite,
@@ -121,6 +156,15 @@ export function InteractiveMap({
   const [layer, setLayer] = useState<MapLayerKey>("atlas");
   // Facteur d'échelle des icônes labo selon le zoom (1 au zoom max).
   const [labIconScale, setLabIconScale] = useState(1);
+
+  // Filtres d'affichage (panneau en haut à droite). Tout coché = tout
+  // visible. Décocher pour masquer.
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  function toggleFilter(key: FilterKey) {
+    setFilters((f) => ({ ...f, [key]: !f[key] }));
+  }
   const [gangs, setGangs] = useState<Gang[]>([]);
   const [zones, setZones] = useState<SensitiveZone[]>([]);
   const [labMarkers, setLabMarkers] = useState<LabMarker[]>([]);
@@ -335,6 +379,9 @@ export function InteractiveMap({
       const isBeingEdited = mode === "editing" && zone.id === editingZoneId;
       if (isBeingEdited) continue;
 
+      if (zone.type_zone === "vente" && !filters.zoneVente) continue;
+      if (zone.type_zone === "influence" && !filters.zoneInfluence) continue;
+
       const gang = gangsById.get(zone.gang_id);
       const color = gang?.couleur ?? "#8B94A0";
       const lock = locks.get(zone.id);
@@ -362,7 +409,16 @@ export function InteractiveMap({
 
       polygon.addTo(group);
     }
-  }, [zones, gangs, locks, mode, editingZoneId, currentUserId]);
+  }, [
+    zones,
+    gangs,
+    locks,
+    mode,
+    editingZoneId,
+    currentUserId,
+    filters.zoneVente,
+    filters.zoneInfluence,
+  ]);
 
   // --- Rendu des marqueurs laboratoire ---------------------------------
 
@@ -371,8 +427,18 @@ export function InteractiveMap({
     if (!group) return;
     group.clearLayers();
 
+    const catShown: Record<LabMarker["categorie"], boolean> = {
+      arme: filters.labArme,
+      cocaine: filters.labCocaine,
+      meth: filters.labMeth,
+    };
+
     for (const marker of labMarkers) {
       if (mode === "lab-editing" && marker.id === editingLabId) continue;
+
+      if (!catShown[marker.categorie]) continue;
+      if (marker.statut === "actif" && !filters.labActif) continue;
+      if (marker.statut === "raided" && !filters.labRaided) continue;
 
       const lock = labLocks.get(marker.id);
       const isLockedByOther = !!lock && lock.locked_by !== currentUserId;
@@ -395,7 +461,19 @@ export function InteractiveMap({
 
       m.addTo(group);
     }
-  }, [labMarkers, labLocks, mode, editingLabId, currentUserId, labIconScale]);
+  }, [
+    labMarkers,
+    labLocks,
+    mode,
+    editingLabId,
+    currentUserId,
+    labIconScale,
+    filters.labArme,
+    filters.labCocaine,
+    filters.labMeth,
+    filters.labActif,
+    filters.labRaided,
+  ]);
 
   // --- Aperçu du dessin d'une nouvelle zone -----------------------------
 
@@ -810,12 +888,14 @@ export function InteractiveMap({
   const panelLabelClass =
     "mb-1 block font-mono text-[10px] uppercase tracking-wider text-gtf-text-muted";
 
+  const someFilterHidden = Object.values(filters).some((v) => !v);
+
   return (
     <div className="relative h-[75vh] w-full overflow-hidden rounded-md border border-gtf-border">
       <div ref={containerRef} className="h-full w-full bg-[#0A0C0F]" />
 
-      {/* Sélecteur de version de carte */}
-      <div className="absolute right-3 top-3 z-[500]">
+      {/* Haut à droite : fond de carte + filtres d'affichage */}
+      <div className="absolute right-3 top-3 z-[500] flex w-48 flex-col gap-2">
         <select
           value={layer}
           onChange={(e) => setLayer(e.target.value as MapLayerKey)}
@@ -827,6 +907,77 @@ export function InteractiveMap({
             </option>
           ))}
         </select>
+
+        <div className="rounded-md border border-gtf-border bg-gtf-panel/95 shadow-lg">
+          <button
+            onClick={() => setFiltersOpen((o) => !o)}
+            className="flex w-full items-center justify-between px-3 py-1.5 font-mono text-xs uppercase tracking-wider text-gtf-text hover:text-gtf-blue-hover"
+          >
+            <span>
+              Filtres
+              {someFilterHidden && (
+                <span className="ml-1 text-gtf-blue-hover">•</span>
+              )}
+            </span>
+            <span className="text-gtf-text-muted">
+              {filtersOpen ? "▲" : "▼"}
+            </span>
+          </button>
+
+          {filtersOpen && (
+            <div className="border-t border-gtf-border p-3">
+              <p className={panelLabelClass}>Zones</p>
+              <FilterCheckbox
+                label="Vente"
+                checked={filters.zoneVente}
+                onChange={() => toggleFilter("zoneVente")}
+              />
+              <FilterCheckbox
+                label="Influence"
+                checked={filters.zoneInfluence}
+                onChange={() => toggleFilter("zoneInfluence")}
+              />
+
+              <p className={`${panelLabelClass} mt-3`}>Laboratoires</p>
+              <FilterCheckbox
+                label="Arme"
+                checked={filters.labArme}
+                onChange={() => toggleFilter("labArme")}
+              />
+              <FilterCheckbox
+                label="Cocaïne"
+                checked={filters.labCocaine}
+                onChange={() => toggleFilter("labCocaine")}
+              />
+              <FilterCheckbox
+                label="Meth"
+                checked={filters.labMeth}
+                onChange={() => toggleFilter("labMeth")}
+              />
+
+              <p className={`${panelLabelClass} mt-3`}>Statut labo</p>
+              <FilterCheckbox
+                label="Actif"
+                checked={filters.labActif}
+                onChange={() => toggleFilter("labActif")}
+              />
+              <FilterCheckbox
+                label="Raid effectué"
+                checked={filters.labRaided}
+                onChange={() => toggleFilter("labRaided")}
+              />
+
+              {someFilterHidden && (
+                <button
+                  onClick={() => setFilters(DEFAULT_FILTERS)}
+                  className="mt-3 w-full rounded border border-gtf-border px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
+                >
+                  Tout afficher
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Panneau d'action principal */}
