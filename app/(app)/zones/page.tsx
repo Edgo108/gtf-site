@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { MapLoader } from "@/components/zones/MapLoader";
+import { uniteCanWrite } from "@/lib/permissions";
 
 export default async function ZonesPage() {
   const supabase = await createClient();
@@ -10,9 +11,11 @@ export default async function ZonesPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, unite")
     .eq("id", user!.id)
     .single();
+
+  const canWrite = uniteCanWrite("zones", profile ?? {});
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -31,7 +34,7 @@ export default async function ZonesPage() {
       </div>
 
       <div className="mt-6">
-        <MapLoader currentUserId={user!.id} />
+        <MapLoader currentUserId={user!.id} canWrite={canWrite} />
       </div>
     </div>
   );

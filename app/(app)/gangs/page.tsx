@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { GangCard } from "@/components/gangs/GangCard";
 import { GangFilterBar } from "@/components/gangs/GangFilterBar";
+import { uniteCanWrite } from "@/lib/permissions";
 import type { Gang } from "@/lib/supabase/gangs-types";
 
 export default async function GangsPage({
@@ -19,9 +20,11 @@ export default async function GangsPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, unite")
     .eq("id", user!.id)
     .single();
+
+  const canWrite = uniteCanWrite("gangs", profile ?? {});
 
   let query = supabase.from("gangs").select("*").order("nom", { ascending: true });
 
@@ -50,12 +53,14 @@ export default async function GangsPage({
               Corbeille
             </Link>
           )}
-          <Link
-            href="/gangs/nouveau"
-            className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
-          >
-            Nouveau gang
-          </Link>
+          {canWrite && (
+            <Link
+              href="/gangs/nouveau"
+              className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
+            >
+              Nouveau gang
+            </Link>
+          )}
         </div>
       </div>
 

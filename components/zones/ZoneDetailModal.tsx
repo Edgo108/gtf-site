@@ -20,6 +20,7 @@ export function ZoneDetailModal({
   onEdit,
   onDelete,
   editError,
+  canWrite,
 }: {
   zone: SensitiveZone;
   gang: Gang | null;
@@ -28,6 +29,7 @@ export function ZoneDetailModal({
   onEdit: () => void;
   onDelete: () => void;
   editError: string | null;
+  canWrite: boolean;
 }) {
   const [history, setHistory] = useState<ZoneHistoryEntry[] | null>(null);
 
@@ -113,24 +115,27 @@ export function ZoneDetailModal({
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {lockedByOther ? (
-            <span className="rounded border border-gtf-amber bg-gtf-amber/10 px-3 py-2 text-xs uppercase tracking-widest text-gtf-amber">
-              Verrouillée par {lockedByOther.pseudo}
-            </span>
-          ) : (
+          {canWrite &&
+            (lockedByOther ? (
+              <span className="rounded border border-gtf-amber bg-gtf-amber/10 px-3 py-2 text-xs uppercase tracking-widest text-gtf-amber">
+                Verrouillée par {lockedByOther.pseudo}
+              </span>
+            ) : (
+              <button
+                onClick={onEdit}
+                className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
+              >
+                Modifier cette zone
+              </button>
+            ))}
+          {canWrite && (
             <button
-              onClick={onEdit}
-              className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
+              onClick={onDelete}
+              className="rounded border border-gtf-red px-4 py-2 text-xs uppercase tracking-widest text-gtf-red hover:bg-gtf-red/10"
             >
-              Modifier cette zone
+              Supprimer cette zone
             </button>
           )}
-          <button
-            onClick={onDelete}
-            className="rounded border border-gtf-red px-4 py-2 text-xs uppercase tracking-widest text-gtf-red hover:bg-gtf-red/10"
-          >
-            Supprimer cette zone
-          </button>
           {gang && (
             <Link
               href={`/gangs/${gang.id}`}

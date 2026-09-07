@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { AnnouncementCard } from "@/components/announcements/AnnouncementCard";
+import { uniteCanWrite } from "@/lib/permissions";
 import type { Announcement } from "@/lib/supabase/announcements-types";
 
 const AUTHOR_GRADES = ["Lieutenant", "Commandant"];
@@ -13,11 +14,13 @@ export default async function AnnoncesPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("grade, role")
+    .select("grade, role, unite")
     .eq("id", user!.id)
     .single();
 
-  const canCreate = profile ? AUTHOR_GRADES.includes(profile.grade) : false;
+  const canWriteAnnonces = uniteCanWrite("annonces", profile ?? {});
+  const canCreate =
+    !!profile && AUTHOR_GRADES.includes(profile.grade) && canWriteAnnonces;
 
   const { data: announcements } = await supabase
     .from("announcements")
@@ -56,7 +59,9 @@ export default async function AnnoncesPage() {
             announcement={announcement}
             isRead={readIds.has(announcement.id)}
             canManage={
-              announcement.created_by === user!.id || profile?.role === "admin"
+              canWriteAnnonces &&
+              (announcement.created_by === user!.id ||
+                profile?.role === "admin")
             }
           />
         ))}

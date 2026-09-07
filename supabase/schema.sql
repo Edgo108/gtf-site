@@ -7,6 +7,10 @@ create table public.profiles (
   role text not null default 'agent' check (role in ('admin', 'agent')),
   statut text not null default 'actif' check (statut in ('actif', 'suspendu')),
   grade text not null default 'Agent',
+  -- 3e dimension de permissions (rôle/unité). Détail des droits associés
+  -- et policies RLS correspondantes : supabase/permissions_unite.sql.
+  -- Tout compte (admin inclus) démarre en 'SASP', à réattribuer ensuite.
+  unite text not null default 'SASP' check (unite in ('ID', 'GTF', 'SASP', 'DOJ')),
   doit_changer_mdp boolean not null default true,
   created_at timestamptz not null default now()
 );

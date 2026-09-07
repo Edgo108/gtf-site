@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AnnouncementForm } from "@/components/announcements/AnnouncementForm";
+import { uniteCanWrite } from "@/lib/permissions";
 import type { Announcement } from "@/lib/supabase/announcements-types";
 
 export default async function ModifierAnnoncePage({
@@ -30,12 +31,13 @@ export default async function ModifierAnnoncePage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, unite")
     .eq("id", user.id)
     .single();
 
   const canEdit =
-    announcement.created_by === user.id || profile?.role === "admin";
+    uniteCanWrite("annonces", profile ?? {}) &&
+    (announcement.created_by === user.id || profile?.role === "admin");
 
   // Défense en profondeur : la RLS bloque déjà la modification côté base.
   if (!canEdit) {

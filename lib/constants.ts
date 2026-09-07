@@ -3,5 +3,6 @@ export const GRADES = [
   "Enquêteur",
   "Sergent",
   "Lieutenant",
+  "Capitaine",
   "Commandant",
 ] as const;

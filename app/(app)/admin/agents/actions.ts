@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pseudoToEmail } from "@/lib/auth/pseudo";
+import { canManageUnite, isUnite, UNITES } from "@/lib/permissions";
 
 type ActionResult = { error?: string; success?: boolean };
 
@@ -30,6 +31,33 @@ async function requireAdmin() {
   return user;
 }
 
+// L'admin OU un grade habilité (Commandant / Capitaine / Lieutenant).
+// Sert uniquement à la réattribution du rôle/unité d'un compte.
+async function requireUniteManager() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Non authentifié.");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, grade")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || !canManageUnite(profile)) {
+    throw new Error(
+      "Seuls l'administrateur et les grades Commandant / Capitaine / Lieutenant peuvent réattribuer une unité.",
+    );
+  }
+
+  return user;
+}
+
 export async function createAgent(
   _prevState: ActionResult,
   formData: FormData,
@@ -39,6 +67,8 @@ export async function createAgent(
   const pseudo = String(formData.get("pseudo") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const grade = String(formData.get("grade") ?? "").trim();
+  const uniteRaw = String(formData.get("unite") ?? "SASP").trim();
+  const unite = isUnite(uniteRaw) ? uniteRaw : "SASP";
 
   if (!pseudo || !password || !grade) {
     return { error: "Tous les champs sont obligatoires." };
@@ -67,6 +97,7 @@ export async function createAgent(
     role: "agent",
     statut: "actif",
     grade,
+    unite,
     doit_changer_mdp: true,
   });
 
@@ -98,6 +129,39 @@ export async function updateAgent(formData: FormData): Promise<ActionResult> {
 
   if (error) {
     return { error: "Impossible de mettre à jour l'agent (pseudo déjà pris ?)." };
+  }
+
+  revalidatePath("/admin/agents");
+  return { success: true };
+}
+
+// Réattribution du rôle/unité d'un compte. Accessible à l'admin ET aux
+// grades Commandant / Capitaine / Lieutenant (et à eux seuls). La RLS
+// (policy profiles_update_unite + trigger enforce_profile_cross_update)
+// applique la même restriction côté base.
+export async function updateAgentUnite(
+  formData: FormData,
+): Promise<ActionResult> {
+  await requireUniteManager();
+
+  const id = String(formData.get("id") ?? "");
+  const uniteRaw = String(formData.get("unite") ?? "").trim();
+
+  if (!id) {
+    return { error: "Identifiant manquant." };
+  }
+  if (!isUnite(uniteRaw)) {
+    return { error: `Unité invalide (attendu : ${UNITES.join(", ")}).` };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("profiles")
+    .update({ unite: uniteRaw })
+    .eq("id", id);
+
+  if (error) {
+    return { error: "Impossible de mettre à jour l'unité du compte." };
   }
 
   revalidatePath("/admin/agents");

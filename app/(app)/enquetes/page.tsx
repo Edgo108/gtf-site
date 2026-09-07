@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { InvestigationCard } from "@/components/investigations/InvestigationCard";
 import { SearchFilterBar } from "@/components/investigations/SearchFilterBar";
+import { uniteCanWrite } from "@/lib/permissions";
 import type { Investigation } from "@/lib/supabase/investigations-types";
 
 export default async function EnquetesPage({
@@ -19,9 +20,11 @@ export default async function EnquetesPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, unite")
     .eq("id", user!.id)
     .single();
+
+  const canWrite = uniteCanWrite("enquetes", profile ?? {});
 
   let query = supabase
     .from("investigations")
@@ -56,12 +59,14 @@ export default async function EnquetesPage({
               Corbeille
             </Link>
           )}
-          <Link
-            href="/enquetes/nouvelle"
-            className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
-          >
-            Nouvelle enquête
-          </Link>
+          {canWrite && (
+            <Link
+              href="/enquetes/nouvelle"
+              className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
+            >
+              Nouvelle enquête
+            </Link>
+          )}
         </div>
       </div>
 

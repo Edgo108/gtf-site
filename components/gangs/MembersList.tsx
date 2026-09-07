@@ -22,13 +22,15 @@ const inputClass =
 export function MembersList({
   gangId,
   members,
+  canWrite,
 }: {
   gangId: string;
   members: GangMember[];
+  canWrite: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <AddMemberForm gangId={gangId} />
+      {canWrite && <AddMemberForm gangId={gangId} />}
 
       <div className="overflow-x-auto rounded-md border border-gtf-border">
         <table className="w-full text-left text-sm">
@@ -37,17 +39,22 @@ export function MembersList({
               <th className="px-4 py-3">Nom</th>
               <th className="px-4 py-3">Rôle</th>
               <th className="px-4 py-3">Statut</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              {canWrite && <th className="px-4 py-3 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {members.map((member) => (
-              <MemberRow key={member.id} gangId={gangId} member={member} />
+              <MemberRow
+                key={member.id}
+                gangId={gangId}
+                member={member}
+                canWrite={canWrite}
+              />
             ))}
             {members.length === 0 && (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={canWrite ? 4 : 3}
                   className="px-4 py-6 text-center text-gtf-text-muted"
                 >
                   Aucun membre identifié.
@@ -170,9 +177,11 @@ function AddMemberForm({ gangId }: { gangId: string }) {
 function MemberRow({
   gangId,
   member,
+  canWrite,
 }: {
   gangId: string;
   member: GangMember;
+  canWrite: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [nom, setNom] = useState(member.nom);
@@ -256,6 +265,7 @@ function MemberRow({
           <MemberStatutBadge statut={member.statut} />
         )}
       </td>
+      {!canWrite ? null : (
       <td className="px-4 py-3">
         <div className="flex justify-end gap-2">
           {editing ? (
@@ -303,6 +313,7 @@ function MemberRow({
           </p>
         )}
       </td>
+      )}
     </tr>
   );
 }

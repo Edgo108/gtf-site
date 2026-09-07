@@ -17,6 +17,12 @@ const InteractiveMap = dynamic(
   },
 );
 
-export function MapLoader({ currentUserId }: { currentUserId: string }) {
-  return <InteractiveMap currentUserId={currentUserId} />;
+export function MapLoader({
+  currentUserId,
+  canWrite,
+}: {
+  currentUserId: string;
+  canWrite: boolean;
+}) {
+  return <InteractiveMap currentUserId={currentUserId} canWrite={canWrite} />;
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildZoneChangeSummary } from "@/lib/zones/change-summary";
+import { uniteCanWrite } from "@/lib/permissions";
 import { LOCK_DURATION_MS } from "@/lib/supabase/zones-types";
 import type {
   SensitiveZone,
@@ -25,7 +26,7 @@ async function requireActiveUser() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("pseudo")
+    .select("pseudo, role, unite")
     .eq("id", user.id)
     .single();
 
@@ -35,6 +36,9 @@ async function requireActiveUser() {
 
   return { supabase, user, profile };
 }
+
+const NO_WRITE_ZONES =
+  "Votre unité n'autorise pas la modification de la carte des zones (lecture seule).";
 
 function parsePoints(raw: string): ZonePoint[] | null {
   try {
@@ -59,6 +63,8 @@ function parseTypeZone(raw: string): ZoneType | null {
 
 export async function createZone(formData: FormData): Promise<ActionResult> {
   const { supabase, user, profile } = await requireActiveUser();
+
+  if (!uniteCanWrite("zones", profile)) return { error: NO_WRITE_ZONES };
 
   const gang_id = String(formData.get("gang_id") ?? "");
   const type_zone = parseTypeZone(String(formData.get("type_zone") ?? ""));
@@ -91,6 +97,8 @@ export async function createZone(formData: FormData): Promise<ActionResult> {
 
 export async function updateZone(formData: FormData): Promise<ActionResult> {
   const { supabase, user, profile } = await requireActiveUser();
+
+  if (!uniteCanWrite("zones", profile)) return { error: NO_WRITE_ZONES };
 
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Identifiant manquant." };
@@ -148,6 +156,8 @@ export async function updateZone(formData: FormData): Promise<ActionResult> {
 export async function deleteZone(formData: FormData): Promise<ActionResult> {
   const { user, profile } = await requireActiveUser();
 
+  if (!uniteCanWrite("zones", profile)) return { error: NO_WRITE_ZONES };
+
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Identifiant manquant." };
 
@@ -175,7 +185,9 @@ export async function deleteZone(formData: FormData): Promise<ActionResult> {
 }
 
 export async function acquireLock(formData: FormData): Promise<ActionResult> {
-  const { user } = await requireActiveUser();
+  const { user, profile } = await requireActiveUser();
+
+  if (!uniteCanWrite("zones", profile)) return { error: NO_WRITE_ZONES };
 
   const zoneId = String(formData.get("zone_id") ?? "");
   if (!zoneId) return { error: "Identifiant manquant." };

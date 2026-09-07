@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Panel } from "@/components/ui/Panel";
 import { ChangePasswordForm } from "@/components/auth/ChangePasswordForm";
+import { UNITE_LABELS, isUnite } from "@/lib/permissions";
 import type { Profile } from "@/lib/supabase/types";
 
 export default async function ProfilPage() {
@@ -12,9 +13,9 @@ export default async function ProfilPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("pseudo, grade, statut, role")
+    .select("pseudo, grade, statut, role, unite")
     .eq("id", user!.id)
-    .single<Pick<Profile, "pseudo" | "grade" | "statut" | "role">>();
+    .single<Pick<Profile, "pseudo" | "grade" | "statut" | "role" | "unite">>();
 
   return (
     <div className="mx-auto max-w-xl">
@@ -33,6 +34,15 @@ export default async function ProfilPage() {
             Grade
           </dt>
           <dd>{profile?.grade}</dd>
+
+          <dt className="font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
+            Unité
+          </dt>
+          <dd>
+            {profile && isUnite(profile.unite)
+              ? UNITE_LABELS[profile.unite]
+              : profile?.unite}
+          </dd>
 
           <dt className="font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
             Statut

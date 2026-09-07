@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Panel } from "@/components/ui/Panel";
 import { StatutBadge } from "@/components/investigations/StatutBadge";
 import { DeleteInvestigationButton } from "@/components/investigations/DeleteInvestigationButton";
+import { uniteCanWrite } from "@/lib/permissions";
 import type {
   Investigation,
   InvestigationHistoryEntry,
@@ -23,9 +24,11 @@ export default async function EnqueteDetailPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, unite")
     .eq("id", user!.id)
     .single();
+
+  const canWrite = uniteCanWrite("enquetes", profile ?? {});
 
   const { data: investigation } = await supabase
     .from("investigations")
@@ -45,7 +48,8 @@ export default async function EnqueteDetailPage({
     .returns<InvestigationHistoryEntry[]>();
 
   const canDelete =
-    investigation.created_by === user!.id || profile?.role === "admin";
+    canWrite &&
+    (investigation.created_by === user!.id || profile?.role === "admin");
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -59,12 +63,14 @@ export default async function EnqueteDetailPage({
           </div>
         </div>
         <div className="flex gap-2">
-          <Link
-            href={`/enquetes/${investigation.id}/modifier`}
-            className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
-          >
-            Modifier
-          </Link>
+          {canWrite && (
+            <Link
+              href={`/enquetes/${investigation.id}/modifier`}
+              className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
+            >
+              Modifier
+            </Link>
+          )}
           {canDelete && <DeleteInvestigationButton id={investigation.id} />}
         </div>
       </div>

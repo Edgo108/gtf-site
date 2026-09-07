@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { createAgent } from "@/app/(app)/admin/agents/actions";
 import { GRADES } from "@/lib/constants";
+import { UNITES, UNITE_LABELS } from "@/lib/permissions";
 
 export function CreateAgentForm() {
   const formRef = useRef<HTMLFormElement>(null);
@@ -90,6 +91,28 @@ export function CreateAgentForm() {
           {GRADES.map((grade) => (
             <option key={grade} value={grade}>
               {grade}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label
+          htmlFor="new-unite"
+          className="mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted"
+        >
+          Unité
+        </label>
+        <select
+          id="new-unite"
+          name="unite"
+          required
+          defaultValue="SASP"
+          className="rounded border border-gtf-border bg-gtf-panel px-3 py-1.5 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+        >
+          {UNITES.map((u) => (
+            <option key={u} value={u}>
+              {UNITE_LABELS[u]}
             </option>
           ))}
         </select>

@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { WantedForm } from "@/components/wanted/WantedForm";
+import { uniteCanWrite } from "@/lib/permissions";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
 
 export default async function ModifierMandatPage({
@@ -10,6 +11,20 @@ export default async function ModifierMandatPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, unite")
+    .eq("id", user!.id)
+    .single();
+
+  if (!uniteCanWrite("mandats", profile ?? {})) {
+    redirect(`/mandats/${id}`);
+  }
 
   const { data: notice } = await supabase
     .from("wanted_notices")

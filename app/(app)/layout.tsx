@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/lib/actions/auth";
 import { NavBadge } from "@/components/ui/NavBadge";
+import { canManageUnite } from "@/lib/permissions";
 import type { Profile } from "@/lib/supabase/types";
 
 export default async function AppLayout({
@@ -83,7 +84,8 @@ export default async function AppLayout({
             <Link href="/profil" className="hover:text-gtf-text">
               Mon profil
             </Link>
-            {profile?.role === "admin" && (
+            {(profile?.role === "admin" ||
+              (profile && canManageUnite(profile))) && (
               <Link href="/admin/agents" className="hover:text-gtf-text">
                 Gestion des agents
               </Link>

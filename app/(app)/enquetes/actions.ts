@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildChangeSummary } from "@/lib/investigations/change-summary";
+import { uniteCanWrite } from "@/lib/permissions";
 import {
   normalizeName,
   parseSuspectNames,
@@ -35,7 +36,7 @@ async function requireActiveUser() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("pseudo, role")
+    .select("pseudo, role, unite")
     .eq("id", user.id)
     .single();
 
@@ -45,6 +46,9 @@ async function requireActiveUser() {
 
   return { supabase, user, profile };
 }
+
+const NO_WRITE_ENQUETES =
+  "Votre unité n'autorise pas la modification des enquêtes (lecture seule).";
 
 function readFields(formData: FormData) {
   const titre = String(formData.get("titre") ?? "").trim();
@@ -68,6 +72,11 @@ export async function createInvestigation(
   formData: FormData,
 ): Promise<ActionResult> {
   const { supabase, user, profile } = await requireActiveUser();
+
+  if (!uniteCanWrite("enquetes", profile)) {
+    return { error: NO_WRITE_ENQUETES };
+  }
+
   const fields = readFields(formData);
 
   if (!fields.titre) {
@@ -99,6 +108,10 @@ export async function updateInvestigation(
   formData: FormData,
 ): Promise<ActionResult> {
   const { supabase, user, profile } = await requireActiveUser();
+
+  if (!uniteCanWrite("enquetes", profile)) {
+    return { error: NO_WRITE_ENQUETES };
+  }
 
   const id = String(formData.get("id") ?? "");
   if (!id) {
@@ -147,6 +160,10 @@ export async function softDeleteInvestigation(
   formData: FormData,
 ): Promise<ActionResult> {
   const { supabase, user, profile } = await requireActiveUser();
+
+  if (!uniteCanWrite("enquetes", profile)) {
+    return { error: NO_WRITE_ENQUETES };
+  }
 
   const id = String(formData.get("id") ?? "");
   if (!id) {

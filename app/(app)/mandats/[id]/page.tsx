@@ -8,6 +8,7 @@ import { StatutBadge } from "@/components/wanted/StatutBadge";
 import { MarkCapturedButton } from "@/components/wanted/MarkCapturedButton";
 import { DeleteWantedButton } from "@/components/wanted/DeleteWantedButton";
 import { normalizeName, parseSuspectNames } from "@/lib/investigations/suspects";
+import { uniteCanWrite } from "@/lib/permissions";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
 
 export default async function MandatDetailPage({
@@ -17,6 +18,17 @@ export default async function MandatDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, unite")
+    .eq("id", user!.id)
+    .single();
+  const canWrite = uniteCanWrite("mandats", profile ?? {});
 
   const { data: notice } = await supabase
     .from("wanted_notices")
@@ -59,16 +71,18 @@ export default async function MandatDetailPage({
             <StatutBadge statut={notice.statut} />
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link
-              href={`/mandats/${notice.id}/modifier`}
-              className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
-            >
-              Modifier
-            </Link>
-            <MarkCapturedButton id={notice.id} statut={notice.statut} />
-            <DeleteWantedButton id={notice.id} />
-          </div>
+          {canWrite && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href={`/mandats/${notice.id}/modifier`}
+                className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
+              >
+                Modifier
+              </Link>
+              <MarkCapturedButton id={notice.id} statut={notice.statut} />
+              <DeleteWantedButton id={notice.id} />
+            </div>
+          )}
         </div>
       </div>
 

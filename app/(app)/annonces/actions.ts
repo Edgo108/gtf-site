@@ -3,12 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { uniteCanWrite } from "@/lib/permissions";
 import type { AnnouncementPriorite } from "@/lib/supabase/announcements-types";
 
 type ActionResult = { error?: string };
 
 const VALID_PRIORITES: AnnouncementPriorite[] = ["normale", "urgente"];
 const AUTHOR_GRADES = ["Lieutenant", "Commandant"];
+
+const NO_WRITE_ANNONCES =
+  "Votre unité n'autorise pas la gestion des notifications (lecture seule).";
 
 function readPriorite(formData: FormData): AnnouncementPriorite {
   const raw = String(formData.get("priorite") ?? "normale");
@@ -29,7 +33,7 @@ async function requireAnnouncementAuthor() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("grade")
+    .select("grade, role, unite")
     .eq("id", user.id)
     .single();
 
@@ -39,7 +43,31 @@ async function requireAnnouncementAuthor() {
     );
   }
 
+  if (!uniteCanWrite("annonces", profile)) {
+    throw new Error(NO_WRITE_ANNONCES);
+  }
+
   return { supabase, user };
+}
+
+// Créateur d'une annonce ou admin — ET unité habilitée à écrire.
+async function requireAnnouncementManager() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Non authentifié.");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, unite")
+    .eq("id", user.id)
+    .single();
+
+  return { supabase, user, profile: profile ?? {} };
 }
 
 export async function createAnnouncement(
@@ -74,13 +102,14 @@ export async function createAnnouncement(
 export async function updateAnnouncement(
   formData: FormData,
 ): Promise<ActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user, profile } = await requireAnnouncementManager();
 
   if (!user) {
     return { error: "Non authentifié." };
+  }
+
+  if (!uniteCanWrite("annonces", profile)) {
+    return { error: NO_WRITE_ANNONCES };
   }
 
   const id = String(formData.get("id") ?? "");
@@ -113,13 +142,14 @@ export async function updateAnnouncement(
 export async function deleteAnnouncement(
   formData: FormData,
 ): Promise<ActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user, profile } = await requireAnnouncementManager();
 
   if (!user) {
     return { error: "Non authentifié." };
+  }
+
+  if (!uniteCanWrite("annonces", profile)) {
+    return { error: NO_WRITE_ANNONCES };
   }
 
   const id = String(formData.get("id") ?? "");

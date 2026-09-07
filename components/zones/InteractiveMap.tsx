@@ -54,8 +54,10 @@ function makeHandleIcon(): L.DivIcon {
 
 export function InteractiveMap({
   currentUserId,
+  canWrite,
 }: {
   currentUserId: string;
+  canWrite: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -487,7 +489,7 @@ export function InteractiveMap({
 
       {/* Panneau d'action principal */}
       <div className="absolute left-3 top-3 z-[500]">
-        {mode === "view" && (
+        {mode === "view" && canWrite && (
           <button
             onClick={startDrawing}
             className="rounded bg-gtf-blue px-4 py-2 font-mono text-xs uppercase tracking-widest text-gtf-text shadow-lg hover:bg-gtf-blue-hover"
@@ -635,6 +637,7 @@ export function InteractiveMap({
           onEdit={() => startEditing(selectedZone)}
           onDelete={() => handleDelete(selectedZone.id)}
           editError={modalError}
+          canWrite={canWrite}
         />
       )}
     </div>

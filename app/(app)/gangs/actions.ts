@@ -4,12 +4,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { uniteCanWrite } from "@/lib/permissions";
 import type {
   MembreStatut,
   NiveauMenace,
 } from "@/lib/supabase/gangs-types";
 
 type ActionResult = { error?: string };
+
+const NO_WRITE_GANGS =
+  "Votre unité n'autorise pas la modification de la base gangs (lecture seule).";
 
 const VALID_NIVEAUX: NiveauMenace[] = ["faible", "moyen", "eleve"];
 const VALID_MEMBER_STATUTS: MembreStatut[] = [
@@ -31,7 +35,20 @@ async function requireActiveUser() {
     throw new Error("Non authentifié.");
   }
 
-  return { supabase, user };
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, unite")
+    .eq("id", user.id)
+    .single();
+
+  return { supabase, user, profile: profile ?? {} };
+}
+
+function ensureCanWriteGangs(profile: {
+  role?: string | null;
+  unite?: string | null;
+}): ActionResult | null {
+  return uniteCanWrite("gangs", profile) ? null : { error: NO_WRITE_GANGS };
 }
 
 function readGangFields(formData: FormData) {
@@ -54,7 +71,11 @@ function readGangFields(formData: FormData) {
 }
 
 export async function createGang(formData: FormData): Promise<ActionResult> {
-  const { supabase } = await requireActiveUser();
+  const { supabase, profile } = await requireActiveUser();
+
+  const denied = ensureCanWriteGangs(profile);
+  if (denied) return denied;
+
   const fields = readGangFields(formData);
 
   if (!fields.nom) {
@@ -76,7 +97,10 @@ export async function createGang(formData: FormData): Promise<ActionResult> {
 }
 
 export async function updateGang(formData: FormData): Promise<ActionResult> {
-  const { supabase } = await requireActiveUser();
+  const { supabase, profile } = await requireActiveUser();
+
+  const denied = ensureCanWriteGangs(profile);
+  if (denied) return denied;
 
   const id = String(formData.get("id") ?? "");
   if (!id) {
@@ -100,7 +124,10 @@ export async function updateGang(formData: FormData): Promise<ActionResult> {
 }
 
 export async function deleteGang(formData: FormData): Promise<ActionResult> {
-  await requireActiveUser();
+  const { profile } = await requireActiveUser();
+
+  const denied = ensureCanWriteGangs(profile);
+  if (denied) return denied;
 
   const id = String(formData.get("id") ?? "");
   if (!id) {
@@ -131,7 +158,10 @@ function readMemberStatut(formData: FormData): MembreStatut {
 export async function createGangMember(
   formData: FormData,
 ): Promise<ActionResult> {
-  const { supabase } = await requireActiveUser();
+  const { supabase, profile } = await requireActiveUser();
+
+  const denied = ensureCanWriteGangs(profile);
+  if (denied) return denied;
 
   const gang_id = String(formData.get("gang_id") ?? "");
   const nom = String(formData.get("nom") ?? "").trim();
@@ -157,7 +187,10 @@ export async function createGangMember(
 export async function updateGangMember(
   formData: FormData,
 ): Promise<ActionResult> {
-  const { supabase } = await requireActiveUser();
+  const { supabase, profile } = await requireActiveUser();
+
+  const denied = ensureCanWriteGangs(profile);
+  if (denied) return denied;
 
   const id = String(formData.get("id") ?? "");
   const gang_id = String(formData.get("gang_id") ?? "");
@@ -185,7 +218,10 @@ export async function updateGangMember(
 export async function deleteGangMember(
   formData: FormData,
 ): Promise<ActionResult> {
-  const { supabase } = await requireActiveUser();
+  const { supabase, profile } = await requireActiveUser();
+
+  const denied = ensureCanWriteGangs(profile);
+  if (denied) return denied;
 
   const id = String(formData.get("id") ?? "");
   const gang_id = String(formData.get("gang_id") ?? "");

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { UNITE_MANAGER_GRADES } from "@/lib/permissions";
 
 // Seule la page de connexion est publique. Tout le reste exige une session.
 const PUBLIC_PATHS = ["/"];
@@ -68,7 +69,7 @@ export async function updateSession(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, doit_changer_mdp")
+    .select("role, grade, doit_changer_mdp")
     .eq("id", user.id)
     .single();
 
@@ -91,9 +92,19 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (pathname.startsWith("/admin") && profile.role !== "admin") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    // Les grades Commandant / Capitaine / Lieutenant accèdent à
+    // « Gestion des agents » (/admin/agents) — uniquement pour réattribuer
+    // le rôle/unité d'un compte. Tout le reste de /admin/* reste admin.
+    const canManageUnite = UNITE_MANAGER_GRADES.includes(profile.grade);
+    const uniteManagerException =
+      canManageUnite &&
+      (pathname === "/admin/agents" || pathname === "/admin/agents/");
+
+    if (!uniteManagerException) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

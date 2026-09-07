@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { InvestigationForm } from "@/components/investigations/InvestigationForm";
+import { uniteCanWrite } from "@/lib/permissions";
 import type { Investigation } from "@/lib/supabase/investigations-types";
 
 export default async function ModifierEnquetePage({
@@ -10,6 +11,20 @@ export default async function ModifierEnquetePage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, unite")
+    .eq("id", user!.id)
+    .single();
+
+  if (!uniteCanWrite("enquetes", profile ?? {})) {
+    redirect(`/enquetes/${id}`);
+  }
 
   const { data: investigation } = await supabase
     .from("investigations")

@@ -5,6 +5,7 @@ import { Panel } from "@/components/ui/Panel";
 import { DangerBadge } from "@/components/wanted/DangerBadge";
 import { DeleteGangButton } from "@/components/gangs/DeleteGangButton";
 import { MembersList } from "@/components/gangs/MembersList";
+import { uniteCanWrite } from "@/lib/permissions";
 import type { Gang, GangMember } from "@/lib/supabase/gangs-types";
 
 export default async function GangDetailPage({
@@ -14,6 +15,17 @@ export default async function GangDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, unite")
+    .eq("id", user!.id)
+    .single();
+  const canWrite = uniteCanWrite("gangs", profile ?? {});
 
   const { data: gang } = await supabase
     .from("gangs")
@@ -53,15 +65,17 @@ export default async function GangDetailPage({
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Link
-            href={`/gangs/${gang.id}/modifier`}
-            className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
-          >
-            Modifier
-          </Link>
-          <DeleteGangButton id={gang.id} />
-        </div>
+        {canWrite && (
+          <div className="flex gap-2">
+            <Link
+              href={`/gangs/${gang.id}/modifier`}
+              className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
+            >
+              Modifier
+            </Link>
+            <DeleteGangButton id={gang.id} />
+          </div>
+        )}
       </div>
 
       <Panel title="Activités" className="mt-6">
@@ -77,7 +91,11 @@ export default async function GangDetailPage({
       )}
 
       <Panel title="Membres identifiés" className="mt-4">
-        <MembersList gangId={gang.id} members={members ?? []} />
+        <MembersList
+          gangId={gang.id}
+          members={members ?? []}
+          canWrite={canWrite}
+        />
       </Panel>
     </div>
   );

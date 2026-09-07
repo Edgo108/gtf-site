@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { WantedCard } from "@/components/wanted/WantedCard";
 import { FilterBar } from "@/components/wanted/FilterBar";
+import { uniteCanWrite } from "@/lib/permissions";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
 
 export default async function MandatsPage({
@@ -16,6 +17,13 @@ export default async function MandatsPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, unite")
+    .eq("id", user!.id)
+    .single();
+  const canWrite = uniteCanWrite("mandats", profile ?? {});
 
   // Marque les mandats comme "vus" pour cet agent : remet à zéro la
   // pastille de compteur affichée dans la navigation.
@@ -48,12 +56,14 @@ export default async function MandatsPage({
         <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
           Mandats de recherche
         </h1>
-        <Link
-          href="/mandats/nouveau"
-          className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
-        >
-          Nouveau mandat
-        </Link>
+        {canWrite && (
+          <Link
+            href="/mandats/nouveau"
+            className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
+          >
+            Nouveau mandat
+          </Link>
+        )}
       </div>
 
       <Suspense fallback={null}>

@@ -3,12 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { uniteCanWrite } from "@/lib/permissions";
 import type {
   NiveauDangerosite,
   WantedStatut,
 } from "@/lib/supabase/wanted-notices-types";
 
 type ActionResult = { error?: string };
+
+const NO_WRITE_MANDATS =
+  "Votre unité n'autorise pas la modification des mandats (lecture seule).";
 type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
 
 const VALID_NIVEAUX: NiveauDangerosite[] = ["faible", "moyen", "eleve"];
@@ -33,7 +37,13 @@ async function requireActiveUser() {
     throw new Error("Non authentifié.");
   }
 
-  return { supabase, user };
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, unite")
+    .eq("id", user.id)
+    .single();
+
+  return { supabase, user, profile: profile ?? {} };
 }
 
 function extractStoragePath(url: string): string | null {
@@ -85,7 +95,12 @@ function readFields(formData: FormData) {
 export async function createWantedNotice(
   formData: FormData,
 ): Promise<ActionResult> {
-  const { supabase, user } = await requireActiveUser();
+  const { supabase, user, profile } = await requireActiveUser();
+
+  if (!uniteCanWrite("mandats", profile)) {
+    return { error: NO_WRITE_MANDATS };
+  }
+
   const fields = readFields(formData);
 
   if (!fields.nom_suspect) {
@@ -117,7 +132,11 @@ export async function createWantedNotice(
 export async function updateWantedNotice(
   formData: FormData,
 ): Promise<ActionResult> {
-  const { supabase } = await requireActiveUser();
+  const { supabase, profile } = await requireActiveUser();
+
+  if (!uniteCanWrite("mandats", profile)) {
+    return { error: NO_WRITE_MANDATS };
+  }
 
   const id = String(formData.get("id") ?? "");
   if (!id) {
@@ -177,7 +196,11 @@ export async function updateWantedNotice(
 export async function toggleWantedStatut(
   formData: FormData,
 ): Promise<ActionResult> {
-  const { supabase } = await requireActiveUser();
+  const { supabase, profile } = await requireActiveUser();
+
+  if (!uniteCanWrite("mandats", profile)) {
+    return { error: NO_WRITE_MANDATS };
+  }
 
   const id = String(formData.get("id") ?? "");
   const current = String(formData.get("statut") ?? "");
@@ -203,7 +226,11 @@ export async function toggleWantedStatut(
 export async function deleteWantedNotice(
   formData: FormData,
 ): Promise<ActionResult> {
-  const { supabase } = await requireActiveUser();
+  const { supabase, profile } = await requireActiveUser();
+
+  if (!uniteCanWrite("mandats", profile)) {
+    return { error: NO_WRITE_MANDATS };
+  }
 
   const id = String(formData.get("id") ?? "");
   if (!id) {
