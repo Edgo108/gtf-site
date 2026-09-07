@@ -81,9 +81,6 @@ export default async function AppLayout({
               Annonces
               <NavBadge count={unreadCount} />
             </Link>
-            <Link href="/patch-notes" className="hover:text-gtf-text">
-              Patch notes
-            </Link>
             <Link href="/profil" className="hover:text-gtf-text">
               Mon profil
             </Link>
