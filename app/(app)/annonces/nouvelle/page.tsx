@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AnnouncementForm } from "@/components/announcements/AnnouncementForm";
-import { uniteCanWrite } from "@/lib/permissions";
-
-const AUTHOR_GRADES = ["Lieutenant", "Commandant"];
+import { canAuthorAnnouncements, uniteCanWrite } from "@/lib/permissions";
 
 export default async function NouvelleAnnoncePage() {
   const supabase = await createClient();
@@ -24,7 +22,7 @@ export default async function NouvelleAnnoncePage() {
   // Défense en profondeur : la RLS bloque déjà l'insertion côté base.
   if (
     !profile ||
-    !AUTHOR_GRADES.includes(profile.grade) ||
+    !canAuthorAnnouncements(profile.grade) ||
     !uniteCanWrite("annonces", profile)
   ) {
     redirect("/annonces");

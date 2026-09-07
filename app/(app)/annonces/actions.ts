@@ -3,13 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { uniteCanWrite } from "@/lib/permissions";
+import { canAuthorAnnouncements, uniteCanWrite } from "@/lib/permissions";
 import type { AnnouncementPriorite } from "@/lib/supabase/announcements-types";
 
 type ActionResult = { error?: string };
 
 const VALID_PRIORITES: AnnouncementPriorite[] = ["normale", "urgente"];
-const AUTHOR_GRADES = ["Lieutenant", "Commandant"];
 
 const NO_WRITE_ANNONCES =
   "Votre unité n'autorise pas la gestion des notifications (lecture seule).";
@@ -37,9 +36,9 @@ async function requireAnnouncementAuthor() {
     .eq("id", user.id)
     .single();
 
-  if (!profile || !AUTHOR_GRADES.includes(profile.grade)) {
+  if (!profile || !canAuthorAnnouncements(profile.grade)) {
     throw new Error(
-      "Seuls les Lieutenants et Commandants peuvent créer une notification.",
+      "Seuls les Lieutenants, Capitaines et Commandants peuvent créer une notification.",
     );
   }
 

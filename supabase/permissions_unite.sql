@@ -315,7 +315,8 @@ create policy "sensitive_zones_update"
   );
 
 -- --- announcements --------------------------------------------
--- Conserve la garde de grade (Lieutenant/Commandant) ET ajoute l'unité.
+-- Conserve la garde de grade (public.can_create_announcements) ET ajoute
+-- l'unité.
 drop policy if exists "announcements_insert" on public.announcements;
 create policy "announcements_insert"
   on public.announcements for insert

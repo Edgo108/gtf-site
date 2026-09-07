@@ -3,7 +3,8 @@
 -- public.is_admin(), public.is_active_agent(), public.set_updated_at()).
 -- Dashboard Supabase → SQL Editor → New query.
 
--- Seuls les grades Lieutenant/Commandant peuvent créer une annonce.
+-- Seuls les grades Lieutenant / Capitaine / Commandant peuvent créer une
+-- annonce (le Capitaine a les mêmes droits que le Commandant).
 -- Lit uniquement la ligne "profiles" de l'appelant (autorisée par
 -- profiles_select_own), donc aucune élévation de privilège.
 create or replace function public.can_create_announcements()
@@ -15,7 +16,8 @@ set search_path = public
 as $$
   select exists (
     select 1 from public.profiles
-    where id = auth.uid() and grade in ('Lieutenant', 'Commandant')
+    where id = auth.uid()
+      and grade in ('Lieutenant', 'Capitaine', 'Commandant')
   );
 $$;
 

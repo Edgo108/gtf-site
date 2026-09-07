@@ -77,3 +77,17 @@ export function canManageUnite(actor: {
     UNITE_MANAGER_GRADES.includes(actor.grade ?? "")
   );
 }
+
+// --- Qui peut créer / gérer les notifications (annonces) ------------
+// Le Capitaine a les mêmes droits que le Commandant. Doit rester
+// synchronisé avec public.can_create_announcements() dans
+// supabase/announcements.sql.
+export const ANNOUNCEMENT_AUTHOR_GRADES = [
+  "Lieutenant",
+  "Capitaine",
+  "Commandant",
+];
+
+export function canAuthorAnnouncements(grade?: string | null): boolean {
+  return ANNOUNCEMENT_AUTHOR_GRADES.includes(grade ?? "");
+}
