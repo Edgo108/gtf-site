@@ -12,7 +12,16 @@ import {
   releaseLock,
   getLocksWithPseudos,
 } from "@/app/(app)/zones/actions";
+import {
+  createLabMarker,
+  updateLabMarker,
+  deleteLabMarker,
+  acquireLabLock,
+  releaseLabLock,
+  getLabLocksWithPseudos,
+} from "@/app/(app)/zones/lab-actions";
 import { ZoneDetailModal } from "./ZoneDetailModal";
+import { LabMarkerDetailModal } from "./LabMarkerDetailModal";
 import type { Gang } from "@/lib/supabase/gangs-types";
 import type {
   SensitiveZone,
@@ -20,6 +29,14 @@ import type {
   ZoneType,
 } from "@/lib/supabase/zones-types";
 import { LOCK_DURATION_MS } from "@/lib/supabase/zones-types";
+import {
+  LAB_CATEGORIE_OPTIONS,
+  LAB_STATUT_OPTIONS,
+  labMarkerIconUrl,
+  type LabCategorie,
+  type LabMarker,
+  type LabStatut,
+} from "@/lib/supabase/lab-markers-types";
 
 const MAP_LAYERS = [
   { value: "atlas", label: "Atlas", url: "/map/atlas.png" },
@@ -31,7 +48,7 @@ type MapLayerKey = (typeof MAP_LAYERS)[number]["value"];
 
 type LockInfo = { locked_by: string; locked_at: string; pseudo: string };
 
-type Mode = "view" | "drawing" | "editing";
+type Mode = "view" | "drawing" | "editing" | "lab-placing" | "lab-editing";
 
 const POLL_INTERVAL_MS = 20_000;
 
@@ -52,6 +69,18 @@ function makeHandleIcon(): L.DivIcon {
   });
 }
 
+function makeLabIcon(categorie: LabCategorie, statut: LabStatut): L.Icon {
+  return L.icon({
+    iconUrl: labMarkerIconUrl(categorie),
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+    tooltipAnchor: [0, -17],
+    // Statut "raided" : marqueur grisé/désaturé (voir .gtf-lab-raided
+    // dans app/globals.css), tout en restant cliquable.
+    className: statut === "raided" ? "gtf-lab-raided" : "",
+  });
+}
+
 export function InteractiveMap({
   currentUserId,
   canWrite,
@@ -64,15 +93,23 @@ export function InteractiveMap({
   const imageOverlayRef = useRef<L.ImageOverlay | null>(null);
   const zonesLayerRef = useRef<L.LayerGroup | null>(null);
   const drawLayerRef = useRef<L.LayerGroup | null>(null);
+  const labsLayerRef = useRef<L.LayerGroup | null>(null);
+  const labDraftLayerRef = useRef<L.LayerGroup | null>(null);
+  const labEditMarkerRef = useRef<L.Marker | null>(null);
   const modeRef = useRef<Mode>("view");
   const drawingPointsRef = useRef<ZonePoint[]>([]);
+  const labEditPosRef = useRef<ZonePoint | null>(null);
 
   const [layer, setLayer] = useState<MapLayerKey>("atlas");
   const [gangs, setGangs] = useState<Gang[]>([]);
   const [zones, setZones] = useState<SensitiveZone[]>([]);
+  const [labMarkers, setLabMarkers] = useState<LabMarker[]>([]);
   const [locks, setLocks] = useState<Map<string, LockInfo>>(new Map());
+  const [labLocks, setLabLocks] = useState<Map<string, LockInfo>>(new Map());
 
   const [mode, setMode] = useState<Mode>("view");
+
+  // --- zones : dessin / édition ---
   const [drawingPoints, setDrawingPoints] = useState<ZonePoint[]>([]);
   const [drawGangId, setDrawGangId] = useState("");
   const [drawType, setDrawType] = useState<ZoneType>("vente");
@@ -89,52 +126,92 @@ export function InteractiveMap({
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
 
+  // --- labos : placement / édition ---
+  const [labPlacePos, setLabPlacePos] = useState<ZonePoint | null>(null);
+  const [labPlaceCat, setLabPlaceCat] = useState<LabCategorie>("arme");
+  const [labPlaceStatut, setLabPlaceStatut] = useState<LabStatut>("actif");
+  const [labPlaceOrg, setLabPlaceOrg] = useState("");
+  const [labPlaceError, setLabPlaceError] = useState<string | null>(null);
+  const [labPlacePending, setLabPlacePending] = useState(false);
+
+  const [editingLabId, setEditingLabId] = useState<string | null>(null);
+  const [labEditPos, setLabEditPos] = useState<ZonePoint | null>(null);
+  const [labEditCat, setLabEditCat] = useState<LabCategorie>("arme");
+  const [labEditStatut, setLabEditStatut] = useState<LabStatut>("actif");
+  const [labEditOrg, setLabEditOrg] = useState("");
+  const [labEditError, setLabEditError] = useState<string | null>(null);
+  const [labEditPending, setLabEditPending] = useState(false);
+
+  const [selectedLabId, setSelectedLabId] = useState<string | null>(null);
+  const [labModalError, setLabModalError] = useState<string | null>(null);
+
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
   useEffect(() => {
     drawingPointsRef.current = drawingPoints;
   }, [drawingPoints]);
+  useEffect(() => {
+    labEditPosRef.current = labEditPos;
+  }, [labEditPos]);
 
   // --- Chargement initial + rafraîchissement périodique ------------------
 
-  async function fetchZonesAndGangs() {
+  async function fetchMapData() {
     const supabase = createClient();
-    const [{ data: gangsData }, { data: zonesData }] = await Promise.all([
-      supabase.from("gangs").select("*").returns<Gang[]>(),
-      supabase.from("sensitive_zones").select("*").returns<SensitiveZone[]>(),
-    ]);
+    const [{ data: gangsData }, { data: zonesData }, { data: labsData }] =
+      await Promise.all([
+        supabase.from("gangs").select("*").returns<Gang[]>(),
+        supabase.from("sensitive_zones").select("*").returns<SensitiveZone[]>(),
+        supabase.from("lab_markers").select("*").returns<LabMarker[]>(),
+      ]);
     setGangs(gangsData ?? []);
     setZones(zonesData ?? []);
+    setLabMarkers(labsData ?? []);
   }
 
   async function fetchLocks() {
-    const result = await getLocksWithPseudos();
+    const [zoneLocks, markerLocks] = await Promise.all([
+      getLocksWithPseudos(),
+      getLabLocksWithPseudos(),
+    ]);
     // Les verrous expirés (>3 min) sont écartés ici (dans un callback, pas
-    // le rendu) : `locks` ne contient ensuite que des verrous actifs, ce
-    // qui évite d'appeler Date.now() pendant le rendu en aval.
+    // le rendu) : les Map ne contiennent ensuite que des verrous actifs.
     const now = Date.now();
-    const next = new Map<string, LockInfo>();
-    for (const l of result) {
+
+    const zn = new Map<string, LockInfo>();
+    for (const l of zoneLocks) {
       if (now - new Date(l.locked_at).getTime() < LOCK_DURATION_MS) {
-        next.set(l.zone_id, {
+        zn.set(l.zone_id, {
           locked_by: l.locked_by,
           locked_at: l.locked_at,
           pseudo: l.pseudo,
         });
       }
     }
-    setLocks(next);
+    setLocks(zn);
+
+    const lb = new Map<string, LockInfo>();
+    for (const l of markerLocks) {
+      if (now - new Date(l.locked_at).getTime() < LOCK_DURATION_MS) {
+        lb.set(l.marker_id, {
+          locked_by: l.locked_by,
+          locked_at: l.locked_at,
+          pseudo: l.pseudo,
+        });
+      }
+    }
+    setLabLocks(lb);
   }
 
   useEffect(() => {
     // Synchronisation avec le serveur (chargement initial + sondage
     // périodique) : cas d'usage explicitement prévu pour un effet.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchZonesAndGangs();
+    fetchMapData();
     fetchLocks();
     const interval = setInterval(() => {
-      fetchZonesAndGangs();
+      fetchMapData();
       fetchLocks();
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
@@ -163,9 +240,6 @@ export function InteractiveMap({
           [img.naturalHeight, img.naturalWidth],
         ];
 
-        // Zoom calculé nous-mêmes à partir de la taille réellement mesurée
-        // du conteneur, plutôt que de dépendre du fitBounds interne de
-        // Leaflet (sensible au timing juste après la création de la carte).
         const fitZoom = Math.floor(
           Math.log2(
             Math.min(
@@ -191,10 +265,14 @@ export function InteractiveMap({
 
         zonesLayerRef.current = L.layerGroup().addTo(map);
         drawLayerRef.current = L.layerGroup().addTo(map);
+        labsLayerRef.current = L.layerGroup().addTo(map);
+        labDraftLayerRef.current = L.layerGroup().addTo(map);
 
         map.on("click", (e: L.LeafletMouseEvent) => {
           if (modeRef.current === "drawing") {
             setDrawingPoints((prev) => [...prev, latLngToPoint(e.latlng)]);
+          } else if (modeRef.current === "lab-placing") {
+            setLabPlacePos(latLngToPoint(e.latlng));
           }
         });
 
@@ -219,7 +297,7 @@ export function InteractiveMap({
     }
   }, [layer]);
 
-  // --- Rendu des zones (redessine à chaque changement pertinent) ---------
+  // --- Rendu des zones ---------------------------------------------------
 
   useEffect(() => {
     const group = zonesLayerRef.current;
@@ -230,7 +308,7 @@ export function InteractiveMap({
 
     for (const zone of zones) {
       const isBeingEdited = mode === "editing" && zone.id === editingZoneId;
-      if (isBeingEdited) continue; // rendu séparément par l'effet d'édition
+      if (isBeingEdited) continue;
 
       const gang = gangsById.get(zone.gang_id);
       const color = gang?.couleur ?? "#8B94A0";
@@ -261,7 +339,40 @@ export function InteractiveMap({
     }
   }, [zones, gangs, locks, mode, editingZoneId, currentUserId]);
 
-  // --- Aperçu en direct pendant le dessin d'une nouvelle zone -------------
+  // --- Rendu des marqueurs laboratoire ---------------------------------
+
+  useEffect(() => {
+    const group = labsLayerRef.current;
+    if (!group) return;
+    group.clearLayers();
+
+    for (const marker of labMarkers) {
+      if (mode === "lab-editing" && marker.id === editingLabId) continue;
+
+      const lock = labLocks.get(marker.id);
+      const isLockedByOther = !!lock && lock.locked_by !== currentUserId;
+
+      const m = L.marker([marker.position.y, marker.position.x], {
+        icon: makeLabIcon(marker.categorie, marker.statut),
+      });
+
+      if (isLockedByOther) {
+        m.bindTooltip(`En cours de modification par ${lock.pseudo}`, {
+          sticky: true,
+        });
+      }
+
+      m.on("click", () => {
+        if (modeRef.current !== "view") return;
+        setSelectedLabId(marker.id);
+        setLabModalError(null);
+      });
+
+      m.addTo(group);
+    }
+  }, [labMarkers, labLocks, mode, editingLabId, currentUserId]);
+
+  // --- Aperçu du dessin d'une nouvelle zone -----------------------------
 
   useEffect(() => {
     const group = drawLayerRef.current;
@@ -270,18 +381,21 @@ export function InteractiveMap({
 
     if (mode === "drawing" && drawingPoints.length > 0) {
       const latlngs = pointsToLatLngs(drawingPoints);
-      L.polyline(latlngs, { color: "#5B94D6", weight: 2, dashArray: "4,4" }).addTo(
-        group,
-      );
+      L.polyline(latlngs, {
+        color: "#5B94D6",
+        weight: 2,
+        dashArray: "4,4",
+      }).addTo(group);
       drawingPoints.forEach((p) => {
-        L.marker([p.y, p.x], { icon: makeHandleIcon(), interactive: false }).addTo(
-          group,
-        );
+        L.marker([p.y, p.x], {
+          icon: makeHandleIcon(),
+          interactive: false,
+        }).addTo(group);
       });
     }
   }, [mode, drawingPoints]);
 
-  // --- Édition d'une zone existante : points déplaçables ------------------
+  // --- Édition d'une zone : points déplaçables -------------------------
 
   useEffect(() => {
     const group = drawLayerRef.current;
@@ -317,7 +431,58 @@ export function InteractiveMap({
     };
   }, [mode, editingZoneId, editingPoints]);
 
-  // --- Actions : dessin d'une nouvelle zone -------------------------------
+  // --- Aperçu du placement d'un nouveau labo --------------------------
+
+  useEffect(() => {
+    const group = labDraftLayerRef.current;
+    if (!group) return;
+    group.clearLayers();
+
+    if (mode === "lab-placing" && labPlacePos) {
+      L.marker([labPlacePos.y, labPlacePos.x], {
+        icon: makeLabIcon(labPlaceCat, labPlaceStatut),
+        interactive: false,
+        opacity: 0.85,
+      }).addTo(group);
+    }
+  }, [mode, labPlacePos, labPlaceCat, labPlaceStatut]);
+
+  // --- Édition d'un labo : marqueur déplaçable (créé une seule fois) ----
+
+  useEffect(() => {
+    const group = labDraftLayerRef.current;
+    if (!group || mode !== "lab-editing" || !editingLabId) return;
+
+    group.clearLayers();
+    const start = labEditPosRef.current;
+    if (!start) return;
+
+    const marker = L.marker([start.y, start.x], {
+      icon: makeLabIcon(labEditCat, labEditStatut),
+      draggable: true,
+    }).addTo(group);
+    labEditMarkerRef.current = marker;
+
+    marker.on("dragend", () => {
+      setLabEditPos(latLngToPoint(marker.getLatLng()));
+    });
+
+    return () => {
+      group.clearLayers();
+      labEditMarkerRef.current = null;
+    };
+  }, [mode, editingLabId, labEditCat, labEditStatut]);
+
+  // Met à jour l'icône du marqueur en cours d'édition quand la catégorie
+  // ou le statut change (griser immédiatement si passage en "raided"),
+  // sans recréer le marqueur (drag préservé).
+  useEffect(() => {
+    if (mode === "lab-editing" && labEditMarkerRef.current) {
+      labEditMarkerRef.current.setIcon(makeLabIcon(labEditCat, labEditStatut));
+    }
+  }, [mode, labEditCat, labEditStatut]);
+
+  // --- Actions : dessin d'une nouvelle zone ---------------------------
 
   function startDrawing() {
     setDrawError(null);
@@ -362,10 +527,10 @@ export function InteractiveMap({
 
     setDrawingPoints([]);
     setMode("view");
-    fetchZonesAndGangs();
+    fetchMapData();
   }
 
-  // --- Actions : édition d'une zone existante -----------------------------
+  // --- Actions : édition d'une zone existante ------------------------
 
   async function startEditing(zone: SensitiveZone) {
     setModalError(null);
@@ -431,11 +596,9 @@ export function InteractiveMap({
     setEditingZoneId(null);
     setEditingPoints([]);
     setMode("view");
-    fetchZonesAndGangs();
+    fetchMapData();
     fetchLocks();
   }
-
-  // --- Suppression ---------------------------------------------------------
 
   async function handleDelete(zoneId: string) {
     if (
@@ -455,8 +618,152 @@ export function InteractiveMap({
     }
 
     setSelectedZoneId(null);
-    fetchZonesAndGangs();
+    fetchMapData();
   }
+
+  // --- Actions : placement d'un nouveau labo ------------------------
+
+  function startPlacingLab() {
+    setLabPlaceError(null);
+    setLabPlacePos(null);
+    setLabPlaceOrg("");
+    setLabPlaceCat("arme");
+    setLabPlaceStatut("actif");
+    setMode("lab-placing");
+  }
+
+  function cancelPlacingLab() {
+    setLabPlacePos(null);
+    setLabPlaceError(null);
+    setMode("view");
+  }
+
+  async function validatePlacingLab() {
+    if (!labPlaceOrg) {
+      setLabPlaceError("Sélectionnez une organisation.");
+      return;
+    }
+    if (!labPlacePos) {
+      setLabPlaceError("Cliquez sur la carte pour positionner le labo.");
+      return;
+    }
+    setLabPlacePending(true);
+    setLabPlaceError(null);
+
+    const formData = new FormData();
+    formData.set("categorie", labPlaceCat);
+    formData.set("statut", labPlaceStatut);
+    formData.set("organisation_id", labPlaceOrg);
+    formData.set("position", JSON.stringify(labPlacePos));
+
+    const result = await createLabMarker(formData);
+    setLabPlacePending(false);
+
+    if (result.error) {
+      setLabPlaceError(result.error);
+      return;
+    }
+
+    setLabPlacePos(null);
+    setMode("view");
+    fetchMapData();
+  }
+
+  // --- Actions : édition d'un labo existant -------------------------
+
+  async function startEditingLab(marker: LabMarker) {
+    setLabModalError(null);
+    const formData = new FormData();
+    formData.set("marker_id", marker.id);
+    const result = await acquireLabLock(formData);
+
+    if (result.error) {
+      setLabModalError(result.error);
+      await fetchLocks();
+      return;
+    }
+
+    setSelectedLabId(null);
+    setEditingLabId(marker.id);
+    setLabEditPos(marker.position);
+    labEditPosRef.current = marker.position;
+    setLabEditCat(marker.categorie);
+    setLabEditStatut(marker.statut);
+    setLabEditOrg(marker.organisation_id);
+    setLabEditError(null);
+    setMode("lab-editing");
+  }
+
+  async function cancelEditingLab() {
+    if (editingLabId) {
+      const formData = new FormData();
+      formData.set("marker_id", editingLabId);
+      await releaseLabLock(formData);
+    }
+    setEditingLabId(null);
+    setLabEditPos(null);
+    setLabEditError(null);
+    setMode("view");
+    fetchLocks();
+  }
+
+  async function saveEditingLab() {
+    if (!editingLabId) return;
+    if (!labEditOrg) {
+      setLabEditError("Sélectionnez une organisation.");
+      return;
+    }
+    if (!labEditPos) {
+      setLabEditError("Position invalide.");
+      return;
+    }
+    setLabEditPending(true);
+    setLabEditError(null);
+
+    const formData = new FormData();
+    formData.set("id", editingLabId);
+    formData.set("categorie", labEditCat);
+    formData.set("statut", labEditStatut);
+    formData.set("organisation_id", labEditOrg);
+    formData.set("position", JSON.stringify(labEditPos));
+
+    const result = await updateLabMarker(formData);
+    setLabEditPending(false);
+
+    if (result.error) {
+      setLabEditError(result.error);
+      return;
+    }
+
+    setEditingLabId(null);
+    setLabEditPos(null);
+    setMode("view");
+    fetchMapData();
+    fetchLocks();
+  }
+
+  async function handleDeleteLab(markerId: string) {
+    if (
+      !window.confirm(
+        "Déplacer ce marqueur laboratoire vers la corbeille ? Cette action peut être annulée par un administrateur.",
+      )
+    ) {
+      return;
+    }
+    const formData = new FormData();
+    formData.set("id", markerId);
+    const result = await deleteLabMarker(formData);
+
+    if (result.error) {
+      setLabModalError(result.error);
+      return;
+    }
+
+    setSelectedLabId(null);
+    fetchMapData();
+  }
+
+  // --- Sélections dérivées -----------------------------------------
 
   const selectedZone = zones.find((z) => z.id === selectedZoneId) ?? null;
   const selectedGang = selectedZone
@@ -467,6 +774,23 @@ export function InteractiveMap({
     selectedLock && selectedLock.locked_by !== currentUserId
       ? { pseudo: selectedLock.pseudo }
       : null;
+
+  const selectedLab = labMarkers.find((m) => m.id === selectedLabId) ?? null;
+  const selectedLabGang = selectedLab
+    ? gangs.find((g) => g.id === selectedLab.organisation_id) ?? null
+    : null;
+  const selectedLabLock = selectedLab
+    ? labLocks.get(selectedLab.id)
+    : undefined;
+  const selectedLabLockedByOther =
+    selectedLabLock && selectedLabLock.locked_by !== currentUserId
+      ? { pseudo: selectedLabLock.pseudo }
+      : null;
+
+  const panelSelectClass =
+    "w-full rounded border border-gtf-border bg-gtf-panel-alt px-2 py-1.5 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none";
+  const panelLabelClass =
+    "mb-1 block font-mono text-[10px] uppercase tracking-wider text-gtf-text-muted";
 
   return (
     <div className="relative h-[75vh] w-full overflow-hidden rounded-md border border-gtf-border">
@@ -490,12 +814,20 @@ export function InteractiveMap({
       {/* Panneau d'action principal */}
       <div className="absolute left-3 top-3 z-[500]">
         {mode === "view" && canWrite && (
-          <button
-            onClick={startDrawing}
-            className="rounded bg-gtf-blue px-4 py-2 font-mono text-xs uppercase tracking-widest text-gtf-text shadow-lg hover:bg-gtf-blue-hover"
-          >
-            Ajouter une zone
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={startDrawing}
+              className="rounded bg-gtf-blue px-4 py-2 font-mono text-xs uppercase tracking-widest text-gtf-text shadow-lg hover:bg-gtf-blue-hover"
+            >
+              Ajouter une zone
+            </button>
+            <button
+              onClick={startPlacingLab}
+              className="rounded border border-gtf-border bg-gtf-panel/95 px-4 py-2 font-mono text-xs uppercase tracking-widest text-gtf-text shadow-lg hover:border-gtf-blue"
+            >
+              Ajouter un labo
+            </button>
+          </div>
         )}
 
         {mode === "drawing" && (
@@ -504,13 +836,11 @@ export function InteractiveMap({
               Nouvelle zone
             </p>
             <div className="mt-2">
-              <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-gtf-text-muted">
-                Gang
-              </label>
+              <label className={panelLabelClass}>Gang</label>
               <select
                 value={drawGangId}
                 onChange={(e) => setDrawGangId(e.target.value)}
-                className="w-full rounded border border-gtf-border bg-gtf-panel-alt px-2 py-1.5 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+                className={panelSelectClass}
               >
                 <option value="">— Sélectionner —</option>
                 {gangs.map((g) => (
@@ -521,13 +851,11 @@ export function InteractiveMap({
               </select>
             </div>
             <div className="mt-2">
-              <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-gtf-text-muted">
-                Type
-              </label>
+              <label className={panelLabelClass}>Type</label>
               <select
                 value={drawType}
                 onChange={(e) => setDrawType(e.target.value as ZoneType)}
-                className="w-full rounded border border-gtf-border bg-gtf-panel-alt px-2 py-1.5 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+                className={panelSelectClass}
               >
                 <option value="vente">Vente</option>
                 <option value="influence">Influence</option>
@@ -573,13 +901,11 @@ export function InteractiveMap({
               Modification de la zone
             </p>
             <div className="mt-2">
-              <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-gtf-text-muted">
-                Gang
-              </label>
+              <label className={panelLabelClass}>Gang</label>
               <select
                 value={editGangId}
                 onChange={(e) => setEditGangId(e.target.value)}
-                className="w-full rounded border border-gtf-border bg-gtf-panel-alt px-2 py-1.5 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+                className={panelSelectClass}
               >
                 {gangs.map((g) => (
                   <option key={g.id} value={g.id}>
@@ -589,13 +915,11 @@ export function InteractiveMap({
               </select>
             </div>
             <div className="mt-2">
-              <label className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-gtf-text-muted">
-                Type
-              </label>
+              <label className={panelLabelClass}>Type</label>
               <select
                 value={editType}
                 onChange={(e) => setEditType(e.target.value as ZoneType)}
-                className="w-full rounded border border-gtf-border bg-gtf-panel-alt px-2 py-1.5 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+                className={panelSelectClass}
               >
                 <option value="vente">Vente</option>
                 <option value="influence">Influence</option>
@@ -626,6 +950,159 @@ export function InteractiveMap({
             )}
           </div>
         )}
+
+        {mode === "lab-placing" && (
+          <div className="w-72 rounded-md border border-gtf-border bg-gtf-panel/95 p-3 shadow-lg">
+            <p className="font-display text-xs font-semibold uppercase tracking-wide text-gtf-text">
+              Nouveau laboratoire
+            </p>
+            <div className="mt-2">
+              <label className={panelLabelClass}>Catégorie</label>
+              <select
+                value={labPlaceCat}
+                onChange={(e) =>
+                  setLabPlaceCat(e.target.value as LabCategorie)
+                }
+                className={panelSelectClass}
+              >
+                {LAB_CATEGORIE_OPTIONS.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-2">
+              <label className={panelLabelClass}>Statut</label>
+              <select
+                value={labPlaceStatut}
+                onChange={(e) =>
+                  setLabPlaceStatut(e.target.value as LabStatut)
+                }
+                className={panelSelectClass}
+              >
+                {LAB_STATUT_OPTIONS.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-2">
+              <label className={panelLabelClass}>Organisation</label>
+              <select
+                value={labPlaceOrg}
+                onChange={(e) => setLabPlaceOrg(e.target.value)}
+                className={panelSelectClass}
+              >
+                <option value="">— Sélectionner —</option>
+                {gangs.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="mt-2 font-mono text-[11px] text-gtf-text-muted">
+              {labPlacePos
+                ? "Position enregistrée — cliquez ailleurs pour la corriger."
+                : "Cliquez sur la carte pour positionner le labo."}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                onClick={validatePlacingLab}
+                disabled={labPlacePending}
+                className="rounded bg-gtf-blue px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-text hover:bg-gtf-blue-hover disabled:opacity-60"
+              >
+                {labPlacePending ? "..." : "Valider le labo"}
+              </button>
+              <button
+                onClick={cancelPlacingLab}
+                className="rounded border border-gtf-red px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-red hover:bg-gtf-red/10"
+              >
+                Annuler
+              </button>
+            </div>
+            {labPlaceError && (
+              <p role="alert" className="mt-2 text-xs text-gtf-red">
+                {labPlaceError}
+              </p>
+            )}
+          </div>
+        )}
+
+        {mode === "lab-editing" && (
+          <div className="w-72 rounded-md border border-gtf-border bg-gtf-panel/95 p-3 shadow-lg">
+            <p className="font-display text-xs font-semibold uppercase tracking-wide text-gtf-text">
+              Modification du laboratoire
+            </p>
+            <div className="mt-2">
+              <label className={panelLabelClass}>Catégorie</label>
+              <select
+                value={labEditCat}
+                onChange={(e) => setLabEditCat(e.target.value as LabCategorie)}
+                className={panelSelectClass}
+              >
+                {LAB_CATEGORIE_OPTIONS.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-2">
+              <label className={panelLabelClass}>Statut</label>
+              <select
+                value={labEditStatut}
+                onChange={(e) => setLabEditStatut(e.target.value as LabStatut)}
+                className={panelSelectClass}
+              >
+                {LAB_STATUT_OPTIONS.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-2">
+              <label className={panelLabelClass}>Organisation</label>
+              <select
+                value={labEditOrg}
+                onChange={(e) => setLabEditOrg(e.target.value)}
+                className={panelSelectClass}
+              >
+                {gangs.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="mt-2 font-mono text-[11px] text-gtf-text-muted">
+              Glissez le marqueur pour le repositionner.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                onClick={saveEditingLab}
+                disabled={labEditPending}
+                className="rounded bg-gtf-blue px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-text hover:bg-gtf-blue-hover disabled:opacity-60"
+              >
+                {labEditPending ? "..." : "Enregistrer"}
+              </button>
+              <button
+                onClick={cancelEditingLab}
+                className="rounded border border-gtf-border px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
+              >
+                Annuler
+              </button>
+            </div>
+            {labEditError && (
+              <p role="alert" className="mt-2 text-xs text-gtf-red">
+                {labEditError}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {selectedZone && !editingZoneId && (
@@ -637,6 +1114,19 @@ export function InteractiveMap({
           onEdit={() => startEditing(selectedZone)}
           onDelete={() => handleDelete(selectedZone.id)}
           editError={modalError}
+          canWrite={canWrite}
+        />
+      )}
+
+      {selectedLab && !editingLabId && (
+        <LabMarkerDetailModal
+          marker={selectedLab}
+          gang={selectedLabGang}
+          lockedByOther={selectedLabLockedByOther}
+          onClose={() => setSelectedLabId(null)}
+          onEdit={() => startEditingLab(selectedLab)}
+          onDelete={() => handleDeleteLab(selectedLab.id)}
+          editError={labModalError}
           canWrite={canWrite}
         />
       )}

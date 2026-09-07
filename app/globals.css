@@ -114,3 +114,11 @@ body {
     transform: translateX(0);
   }
 }
+
+/* --- Marqueur laboratoire au statut "raided" ---
+   Grisé/désaturé pour le distinguer immédiatement d'un labo actif,
+   tout en restant cliquable (le filtre n'affecte pas les pointer-events). */
+.gtf-lab-raided {
+  filter: grayscale(1) brightness(0.8);
+  opacity: 0.5;
+}
