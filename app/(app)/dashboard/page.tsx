@@ -4,6 +4,11 @@ import { Panel } from "@/components/ui/Panel";
 import { StatutBadge } from "@/components/investigations/StatutBadge";
 import { WantedMiniCard } from "@/components/wanted/WantedMiniCard";
 import { AnnouncementCard } from "@/components/announcements/AnnouncementCard";
+import { PatchNoteCategorieBadge } from "@/components/patch-notes/PatchNoteCategorieBadge";
+import {
+  formatPatchDate,
+  type PatchNote,
+} from "@/lib/supabase/patch-notes-types";
 import type { Profile } from "@/lib/supabase/types";
 import type { Investigation } from "@/lib/supabase/investigations-types";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
@@ -35,6 +40,7 @@ export default async function DashboardPage() {
     activeWantedResult,
     announcementsResult,
     readRowsResult,
+    recentPatchNotesResult,
   ] = await Promise.all([
     supabase
       .from("investigations")
@@ -65,6 +71,13 @@ export default async function DashboardPage() {
       .from("announcement_reads")
       .select("announcement_id")
       .eq("user_id", user!.id),
+    supabase
+      .from("patch_notes")
+      .select("*")
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(3)
+      .returns<PatchNote[]>(),
   ]);
 
   const enCoursCount = enCoursResult.count ?? 0;
@@ -72,6 +85,7 @@ export default async function DashboardPage() {
   const recentInvestigations = recentInvestigationsResult.data ?? [];
   const activeWanted = activeWantedResult.data ?? [];
   const announcements = announcementsResult.data ?? [];
+  const recentPatchNotes = recentPatchNotesResult.data ?? [];
 
   const readIds = new Set(
     (readRowsResult.data ?? []).map((r) => r.announcement_id),
@@ -200,6 +214,37 @@ export default async function DashboardPage() {
           className="mt-3 inline-block font-mono text-xs uppercase tracking-wider text-gtf-blue-hover hover:underline"
         >
           Voir toutes les annonces →
+        </Link>
+      </Panel>
+
+      <Panel title="Dernières mises à jour" className="mt-6">
+        {recentPatchNotes.length > 0 ? (
+          <ul className="flex flex-col divide-y divide-gtf-border">
+            {recentPatchNotes.map((note) => (
+              <li
+                key={note.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0"
+              >
+                <span className="flex flex-wrap items-center gap-2">
+                  <PatchNoteCategorieBadge categorie={note.categorie} />
+                  <span className="text-sm text-gtf-text">{note.titre}</span>
+                </span>
+                <span className="font-mono text-xs text-gtf-text-muted">
+                  {formatPatchDate(note.date)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gtf-text-muted">
+            Aucune mise à jour pour l&apos;instant.
+          </p>
+        )}
+        <Link
+          href="/patch-notes"
+          className="mt-3 inline-block font-mono text-xs uppercase tracking-wider text-gtf-blue-hover hover:underline"
+        >
+          Voir tout l&apos;historique →
         </Link>
       </Panel>
     </div>
