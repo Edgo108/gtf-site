@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DangerBadge } from "@/components/wanted/DangerBadge";
+import { CategorieBadge } from "@/components/gangs/CategorieBadge";
 import type { Gang } from "@/lib/supabase/gangs-types";
 
 export function GangCard({ gang }: { gang: Gang }) {
@@ -15,9 +16,12 @@ export function GangCard({ gang }: { gang: Gang }) {
         </h2>
         <DangerBadge niveau={gang.niveau_menace} />
       </div>
-      <p className="mt-2 text-sm text-gtf-text-muted">
-        {gang.territoire || "Territoire inconnu"}
-      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <CategorieBadge categorie={gang.categorie} />
+        <span className="text-sm text-gtf-text-muted">
+          {gang.territoire || "Territoire inconnu"}
+        </span>
+      </div>
     </Link>
   );
 }

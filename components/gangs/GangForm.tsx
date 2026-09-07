@@ -3,7 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createGang, updateGang } from "@/app/(app)/gangs/actions";
-import type { Gang } from "@/lib/supabase/gangs-types";
+import {
+  GANG_CATEGORIE_OPTIONS,
+  type Gang,
+} from "@/lib/supabase/gangs-types";
 
 const NIVEAUX = [
   { value: "faible", label: "Faible" },
@@ -46,18 +49,38 @@ export function GangForm({ gang }: { gang?: Gang }) {
 
   return (
     <form action={handleAction} className="flex flex-col gap-5">
-      <div>
-        <label htmlFor="nom" className={labelClass}>
-          Nom du gang
-        </label>
-        <input
-          id="nom"
-          name="nom"
-          type="text"
-          required
-          defaultValue={gang?.nom}
-          className={fieldClass}
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="nom" className={labelClass}>
+            Nom
+          </label>
+          <input
+            id="nom"
+            name="nom"
+            type="text"
+            required
+            defaultValue={gang?.nom}
+            className={fieldClass}
+          />
+        </div>
+        <div>
+          <label htmlFor="categorie" className={labelClass}>
+            Catégorie
+          </label>
+          <select
+            id="categorie"
+            name="categorie"
+            required
+            defaultValue={gang?.categorie ?? "Gang"}
+            className={fieldClass}
+          >
+            {GANG_CATEGORIE_OPTIONS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

@@ -5,6 +5,7 @@ import {
   restoreGang,
   permanentlyDeleteGang,
 } from "@/app/(app)/admin/gangs/corbeille/actions";
+import { CategorieBadge } from "@/components/gangs/CategorieBadge";
 import type { Gang } from "@/lib/supabase/gangs-types";
 
 export function GangTrashTable({ gangs }: { gangs: Gang[] }) {
@@ -74,7 +75,12 @@ function TrashRow({ gang }: { gang: Gang }) {
 
   return (
     <tr className="border-b border-gtf-border last:border-0">
-      <td className="px-4 py-3">{gang.nom}</td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2">
+          <CategorieBadge categorie={gang.categorie} />
+          <span>{gang.nom}</span>
+        </div>
+      </td>
       <td className="px-4 py-3">{gang.territoire || "—"}</td>
       <td className="px-4 py-3 font-mono text-xs text-gtf-text-muted">
         {gang.deleted_at

@@ -8,6 +8,10 @@
 create table public.gangs (
   id uuid primary key default gen_random_uuid(),
   nom text not null,
+  -- Étiquette de catégorie. Détail + migration des fiches existantes :
+  -- supabase/gangs_categorie.sql. Réutilisable pour de futurs menus
+  -- déroulants (ex. organisation liée à un marqueur laboratoire).
+  categorie text not null default 'Gang' check (categorie in ('Gang', 'MC', 'Orga')),
   territoire text not null default '',
   niveau_menace text not null default 'moyen' check (niveau_menace in ('faible', 'moyen', 'eleve')),
   activites text not null default '',
@@ -29,7 +33,7 @@ revoke all on public.gangs from authenticated;
 
 grant select, insert on public.gangs to authenticated;
 grant update (
-  nom, territoire, niveau_menace, activites, couleur, notes
+  nom, categorie, territoire, niveau_menace, activites, couleur, notes
 ) on public.gangs to authenticated;
 -- Pas de grant sur deleted_at, ni de DELETE : la corbeille (soft delete,
 -- restauration, suppression définitive) passe par le serveur

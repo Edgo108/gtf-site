@@ -36,10 +36,10 @@ export default async function CorbeilleGangsPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
-        Corbeille — Gangs
+        Corbeille — B.D.D
       </h1>
       <p className="mt-1 font-mono text-sm text-gtf-text-muted">
-        {gangs?.length ?? 0} gang(s) supprimé(s)
+        {gangs?.length ?? 0} fiche(s) supprimée(s)
       </p>
 
       <div className="mt-6">

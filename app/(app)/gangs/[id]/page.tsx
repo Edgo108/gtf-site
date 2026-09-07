@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Panel } from "@/components/ui/Panel";
 import { DangerBadge } from "@/components/wanted/DangerBadge";
 import { DeleteGangButton } from "@/components/gangs/DeleteGangButton";
+import { CategorieBadge } from "@/components/gangs/CategorieBadge";
 import { MembersList } from "@/components/gangs/MembersList";
 import { uniteCanWrite } from "@/lib/permissions";
 import type { Gang, GangMember } from "@/lib/supabase/gangs-types";
@@ -57,7 +58,8 @@ export default async function GangDetailPage({
             <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
               {gang.nom}
             </h1>
-            <div className="mt-1 flex items-center gap-2">
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <CategorieBadge categorie={gang.categorie} />
               <DangerBadge niveau={gang.niveau_menace} />
               <span className="font-mono text-xs text-gtf-text-muted">
                 {gang.territoire || "Territoire inconnu"}

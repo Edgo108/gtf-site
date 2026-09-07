@@ -8,7 +8,7 @@ export function DeleteGangButton({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
 
   function handleDelete() {
-    if (!window.confirm("Déplacer cette fiche gang vers la corbeille ?")) {
+    if (!window.confirm("Déplacer cette fiche vers la corbeille ?")) {
       return;
     }
     setError(null);

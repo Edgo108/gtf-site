@@ -72,7 +72,7 @@ export default async function AppLayout({
               <NavBadge count={newMandatsCount ?? 0} />
             </Link>
             <Link href="/gangs" className="hover:text-gtf-text">
-              Gangs
+              B.D.D
             </Link>
             <Link href="/zones" className="hover:text-gtf-text">
               Carte

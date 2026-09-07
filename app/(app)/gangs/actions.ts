@@ -5,15 +5,17 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uniteCanWrite } from "@/lib/permissions";
-import type {
-  MembreStatut,
-  NiveauMenace,
+import {
+  isGangCategorie,
+  type GangCategorie,
+  type MembreStatut,
+  type NiveauMenace,
 } from "@/lib/supabase/gangs-types";
 
 type ActionResult = { error?: string };
 
 const NO_WRITE_GANGS =
-  "Votre unité n'autorise pas la modification de la base gangs (lecture seule).";
+  "Votre unité n'autorise pas la modification de la B.D.D (lecture seule).";
 
 const VALID_NIVEAUX: NiveauMenace[] = ["faible", "moyen", "eleve"];
 const VALID_MEMBER_STATUTS: MembreStatut[] = [
@@ -53,6 +55,12 @@ function ensureCanWriteGangs(profile: {
 
 function readGangFields(formData: FormData) {
   const nom = String(formData.get("nom") ?? "").trim();
+
+  const categorieRaw = String(formData.get("categorie") ?? "Gang");
+  const categorie: GangCategorie = isGangCategorie(categorieRaw)
+    ? categorieRaw
+    : "Gang";
+
   const territoire = String(formData.get("territoire") ?? "").trim();
   const activites = String(formData.get("activites") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
@@ -67,7 +75,15 @@ function readGangFields(formData: FormData) {
   const couleurRaw = String(formData.get("couleur") ?? DEFAULT_COLOR);
   const couleur = HEX_COLOR_REGEX.test(couleurRaw) ? couleurRaw : DEFAULT_COLOR;
 
-  return { nom, territoire, niveau_menace, activites, couleur, notes };
+  return {
+    nom,
+    categorie,
+    territoire,
+    niveau_menace,
+    activites,
+    couleur,
+    notes,
+  };
 }
 
 export async function createGang(formData: FormData): Promise<ActionResult> {
@@ -79,7 +95,7 @@ export async function createGang(formData: FormData): Promise<ActionResult> {
   const fields = readGangFields(formData);
 
   if (!fields.nom) {
-    return { error: "Le nom du gang est obligatoire." };
+    return { error: "Le nom est obligatoire." };
   }
 
   const { data, error } = await supabase
@@ -89,7 +105,7 @@ export async function createGang(formData: FormData): Promise<ActionResult> {
     .single();
 
   if (error || !data) {
-    return { error: "Impossible de créer la fiche gang." };
+    return { error: "Impossible de créer la fiche." };
   }
 
   revalidatePath("/gangs");
@@ -109,13 +125,13 @@ export async function updateGang(formData: FormData): Promise<ActionResult> {
 
   const fields = readGangFields(formData);
   if (!fields.nom) {
-    return { error: "Le nom du gang est obligatoire." };
+    return { error: "Le nom est obligatoire." };
   }
 
   const { error } = await supabase.from("gangs").update(fields).eq("id", id);
 
   if (error) {
-    return { error: "Impossible de mettre à jour la fiche gang." };
+    return { error: "Impossible de mettre à jour la fiche." };
   }
 
   revalidatePath(`/gangs/${id}`);

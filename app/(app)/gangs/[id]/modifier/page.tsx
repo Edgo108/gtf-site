@@ -24,7 +24,7 @@ export default async function ModifierGangPage({
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
-        Modifier la fiche gang
+        Modifier la fiche B.D.D
       </h1>
       <div className="mt-6">
         <GangForm gang={gang} />

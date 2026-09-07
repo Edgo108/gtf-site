@@ -4,14 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { GangCard } from "@/components/gangs/GangCard";
 import { GangFilterBar } from "@/components/gangs/GangFilterBar";
 import { uniteCanWrite } from "@/lib/permissions";
-import type { Gang } from "@/lib/supabase/gangs-types";
+import { isGangCategorie, type Gang } from "@/lib/supabase/gangs-types";
 
 export default async function GangsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; niveau?: string }>;
+  searchParams: Promise<{ q?: string; niveau?: string; categorie?: string }>;
 }) {
-  const { q, niveau } = await searchParams;
+  const { q, niveau, categorie } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -31,6 +31,9 @@ export default async function GangsPage({
   if (niveau) {
     query = query.eq("niveau_menace", niveau);
   }
+  if (isGangCategorie(categorie)) {
+    query = query.eq("categorie", categorie);
+  }
   const sanitizedQ = q?.replace(/[%,()]/g, "").trim();
   if (sanitizedQ) {
     query = query.ilike("nom", `%${sanitizedQ}%`);
@@ -42,7 +45,7 @@ export default async function GangsPage({
     <div className="mx-auto max-w-6xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
-          Base de données gangs
+          B.D.D
         </h1>
         <div className="flex gap-3">
           {profile?.role === "admin" && (
@@ -58,7 +61,7 @@ export default async function GangsPage({
               href="/gangs/nouveau"
               className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
             >
-              Nouveau gang
+              Nouvelle fiche
             </Link>
           )}
         </div>
@@ -74,7 +77,7 @@ export default async function GangsPage({
         ))}
         {gangs && gangs.length === 0 && (
           <p className="col-span-full text-sm text-gtf-text-muted">
-            Aucun gang trouvé.
+            Aucune fiche trouvée.
           </p>
         )}
       </div>
