@@ -35,7 +35,7 @@ export function AgentsTable({
   const visible = profiles
     .filter((p) => {
       if (!q) return true;
-      return [p.pseudo, p.grade, p.role, p.unite, UNITE_LABELS[p.unite] ?? ""]
+      return [p.pseudo, p.grade, p.unite, UNITE_LABELS[p.unite] ?? ""]
         .join(" ")
         .toLowerCase()
         .includes(q);
@@ -66,7 +66,6 @@ export function AgentsTable({
             <tr className="border-b border-gtf-border bg-gtf-panel-alt font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
               <th className="px-4 py-3">Pseudo</th>
               <th className="px-4 py-3">Grade</th>
-              <th className="px-4 py-3">Rôle</th>
               <th className="px-4 py-3">Unité</th>
               <th className="px-4 py-3">Statut</th>
               {canManageAgents && (
@@ -87,7 +86,7 @@ export function AgentsTable({
             {visible.length === 0 && (
               <tr>
                 <td
-                  colSpan={canManageAgents ? 6 : 5}
+                  colSpan={canManageAgents ? 5 : 4}
                   className="px-4 py-6 text-center text-gtf-text-muted"
                 >
                   Aucun agent ne correspond à « {query} ».
@@ -282,9 +281,6 @@ function AgentRow({
         ) : (
           profile.grade
         )}
-      </td>
-      <td className="px-4 py-3 font-mono text-xs text-gtf-text-muted">
-        {profile.role}
       </td>
       <td className="px-4 py-3">
         <UniteCell profile={profile} editable={canManageUnite} />
