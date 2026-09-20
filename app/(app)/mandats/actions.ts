@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { uniteCanWrite } from "@/lib/permissions";
+import { normalizeName } from "@/lib/investigations/suspects";
 import type {
   NiveauDangerosite,
   WantedStatut,
@@ -78,6 +79,32 @@ async function uploadWantedPhoto(
   return { url: data.publicUrl };
 }
 
+// Correspondance EXACTE (nom + prénom, insensible casse/accents/espaces
+// superflus, pas de floue) avec un membre de gang_members appartenant à
+// une organisation non archivée (gangs.deleted_at is null, déjà filtré
+// par RLS). Recalculée à chaque création/modification du mandat — pas de
+// mise à jour si gang_members change indépendamment entretemps.
+async function resolveOrganisationGangId(
+  supabase: ServerSupabase,
+  nomSuspect: string,
+): Promise<string | null> {
+  const target = normalizeName(nomSuspect);
+  if (!target) return null;
+
+  const [{ data: members }, { data: gangs }] = await Promise.all([
+    supabase.from("gang_members").select("nom, gang_id"),
+    supabase.from("gangs").select("id"),
+  ]);
+
+  const validGangIds = new Set((gangs ?? []).map((g) => g.id));
+  const match = (members ?? []).find(
+    (member) =>
+      validGangIds.has(member.gang_id) && normalizeName(member.nom) === target,
+  );
+
+  return match?.gang_id ?? null;
+}
+
 function readFields(formData: FormData) {
   const nom_suspect = String(formData.get("nom_suspect") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
@@ -115,9 +142,20 @@ export async function createWantedNotice(
     photo_url = uploaded.url ?? null;
   }
 
+  const organisation_gang_id = await resolveOrganisationGangId(
+    supabase,
+    fields.nom_suspect,
+  );
+
   const { data, error } = await supabase
     .from("wanted_notices")
-    .insert({ ...fields, photo_url, statut: "actif", created_by: user.id })
+    .insert({
+      ...fields,
+      photo_url,
+      organisation_gang_id,
+      statut: "actif",
+      created_by: user.id,
+    })
     .select("id")
     .single();
 
@@ -179,9 +217,14 @@ export async function updateWantedNotice(
     photo_url = uploaded.url ?? photo_url;
   }
 
+  const organisation_gang_id = await resolveOrganisationGangId(
+    supabase,
+    fields.nom_suspect,
+  );
+
   const { error } = await supabase
     .from("wanted_notices")
-    .update({ ...fields, statut, photo_url })
+    .update({ ...fields, statut, photo_url, organisation_gang_id })
     .eq("id", id);
 
   if (error) {

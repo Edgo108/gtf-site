@@ -4,16 +4,11 @@ import { useEffect, useState, useTransition, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createWantedNotice, updateWantedNotice } from "@/app/(app)/mandats/actions";
 import { createClient } from "@/lib/supabase/client";
+import { normalizeName } from "@/lib/investigations/suspects";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
 import type { Gang, GangMember } from "@/lib/supabase/gangs-types";
 
 const AUCUNE_ORGANISATION = "Aucune organisation identifiée";
-
-// Nom + prénom insensibles à la casse et aux espaces superflus, mais pas
-// de correspondance floue/partielle (voir résolution ci-dessous).
-function normalizeName(value: string): string {
-  return value.trim().replace(/\s+/g, " ").toLowerCase();
-}
 
 type OrganisationEntry = { nomNormalized: string; orgNom: string };
 

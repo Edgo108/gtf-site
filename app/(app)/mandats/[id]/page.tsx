@@ -40,6 +40,16 @@ export default async function MandatDetailPage({
     notFound();
   }
 
+  let organisationNom: string | null = null;
+  if (notice.organisation_gang_id) {
+    const { data: gang } = await supabase
+      .from("gangs")
+      .select("nom")
+      .eq("id", notice.organisation_gang_id)
+      .single();
+    organisationNom = gang?.nom ?? null;
+  }
+
   const { data: investigations } = await supabase
     .from("investigations")
     .select("id, titre, suspects");
@@ -70,6 +80,20 @@ export default async function MandatDetailPage({
             <DangerBadge niveau={notice.niveau_dangerosite} />
             <StatutBadge statut={notice.statut} />
           </div>
+
+          <p className="mt-2 font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
+            Organisation :{" "}
+            {organisationNom ? (
+              <Link
+                href={`/gangs/${notice.organisation_gang_id}`}
+                className="text-gtf-blue-hover underline"
+              >
+                {organisationNom}
+              </Link>
+            ) : (
+              "Aucune organisation identifiée"
+            )}
+          </p>
 
           {canWrite && (
             <div className="mt-4 flex flex-wrap gap-2">

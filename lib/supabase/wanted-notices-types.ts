@@ -8,6 +8,7 @@ export type WantedNotice = {
   description: string;
   niveau_dangerosite: NiveauDangerosite;
   statut: WantedStatut;
+  organisation_gang_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
