@@ -91,6 +91,12 @@ export async function createLabMarker(
 
   const organisation_id = String(formData.get("organisation_id") ?? "");
   const position = parsePosition(String(formData.get("position") ?? ""));
+  // Enquête liée : optionnelle, une seule à la fois. Sélectionnée via
+  // auto-complétion côté client (pas de texte libre), donc pas de
+  // validation de format ici — une valeur invalide échouerait de toute
+  // façon sur la contrainte de clé étrangère.
+  const investigation_id =
+    String(formData.get("investigation_id") ?? "").trim() || null;
 
   const parsed = parseCategorieAndStatut(formData, "actif");
   if ("error" in parsed) return { error: parsed.error };
@@ -106,6 +112,7 @@ export async function createLabMarker(
       statut,
       organisation_id,
       position,
+      investigation_id,
       created_by: user.id,
     })
     .select("id")
@@ -148,6 +155,11 @@ export async function updateLabMarker(
     String(formData.get("organisation_id") ?? "") || oldMarker.organisation_id;
   const position =
     parsePosition(String(formData.get("position") ?? "")) ?? oldMarker.position;
+  // Toujours envoyée explicitement par le formulaire (vide = pas/plus de
+  // lien), contrairement aux autres champs qui retombent sur l'ancienne
+  // valeur si absents.
+  const investigation_id =
+    String(formData.get("investigation_id") ?? "").trim() || null;
 
   const parsed = parseCategorieAndStatut(formData, oldMarker.statut);
   if ("error" in parsed) return { error: parsed.error };
@@ -157,7 +169,7 @@ export async function updateLabMarker(
 
   const { error } = await supabase
     .from("lab_markers")
-    .update({ categorie, statut, organisation_id, position })
+    .update({ categorie, statut, organisation_id, position, investigation_id })
     .eq("id", id);
 
   if (error) {
@@ -172,6 +184,7 @@ export async function updateLabMarker(
     statut,
     organisation_id,
     position,
+    investigation_id,
   });
 
   await supabase.from("lab_marker_history").insert({

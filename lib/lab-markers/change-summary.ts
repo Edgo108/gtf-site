@@ -6,7 +6,7 @@ import {
 
 type ComparableFields = Pick<
   LabMarker,
-  "categorie" | "statut" | "organisation_id" | "position"
+  "categorie" | "statut" | "organisation_id" | "position" | "investigation_id"
 >;
 
 export function buildLabMarkerChangeSummary(
@@ -29,6 +29,11 @@ export function buildLabMarkerChangeSummary(
   }
   if (JSON.stringify(before.position) !== JSON.stringify(after.position)) {
     changes.push("Marqueur repositionné");
+  }
+  if (before.investigation_id !== after.investigation_id) {
+    changes.push(
+      after.investigation_id ? "Enquête liée modifiée" : "Enquête liée retirée",
+    );
   }
 
   return changes.length > 0 ? changes.join(" · ") : "Aucun changement détecté";

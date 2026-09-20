@@ -73,6 +73,8 @@ export type LabMarker = {
   statut: LabStatut;
   organisation_id: string;
   position: LabMarkerPosition;
+  // Enquête liée (optionnel, une seule à la fois).
+  investigation_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

@@ -4,11 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import { Panel } from "@/components/ui/Panel";
 import { StatutBadge } from "@/components/investigations/StatutBadge";
 import { DeleteInvestigationButton } from "@/components/investigations/DeleteInvestigationButton";
+import {
+  LabCategorieBadge,
+  LabStatutBadge,
+} from "@/components/zones/LabBadges";
 import { uniteCanWrite } from "@/lib/permissions";
 import type {
   Investigation,
   InvestigationHistoryEntry,
 } from "@/lib/supabase/investigations-types";
+import type { LabMarker } from "@/lib/supabase/lab-markers-types";
 
 export default async function EnqueteDetailPage({
   params,
@@ -46,6 +51,18 @@ export default async function EnqueteDetailPage({
     .eq("investigation_id", id)
     .order("created_at", { ascending: false })
     .returns<InvestigationHistoryEntry[]>();
+
+  const { data: linkedLabs } = await supabase
+    .from("lab_markers")
+    .select("id, categorie, statut, organisation_id")
+    .eq("investigation_id", id)
+    .returns<Pick<LabMarker, "id" | "categorie" | "statut" | "organisation_id">[]>();
+
+  const labOrgIds = [...new Set((linkedLabs ?? []).map((l) => l.organisation_id))];
+  const { data: labOrgs } = labOrgIds.length
+    ? await supabase.from("gangs").select("id, nom").in("id", labOrgIds)
+    : { data: [] as { id: string; nom: string }[] };
+  const labOrgNomById = new Map((labOrgs ?? []).map((g) => [g.id, g.nom]));
 
   const canDelete =
     canWrite &&
@@ -97,6 +114,29 @@ export default async function EnqueteDetailPage({
           {investigation.preuves || "—"}
         </p>
       </Panel>
+
+      {linkedLabs && linkedLabs.length > 0 && (
+        <Panel title="Laboratoires liés" className="mt-4">
+          <ul className="flex flex-col gap-2">
+            {linkedLabs.map((lab) => (
+              <li key={lab.id} className="flex flex-wrap items-center gap-2">
+                <LabCategorieBadge categorie={lab.categorie} />
+                <LabStatutBadge statut={lab.statut} />
+                <span className="text-sm text-gtf-text-muted">
+                  {labOrgNomById.get(lab.organisation_id) ??
+                    "Organisation inconnue"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/zones"
+            className="mt-3 inline-block text-xs text-gtf-blue-hover underline"
+          >
+            Voir sur la carte
+          </Link>
+        </Panel>
+      )}
 
       <Panel title="Historique" className="mt-4">
         {history && history.length > 0 ? (

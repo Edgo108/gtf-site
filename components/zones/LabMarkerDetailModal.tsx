@@ -15,6 +15,7 @@ import type {
 export function LabMarkerDetailModal({
   marker,
   gang,
+  investigation,
   lockedByOther,
   onClose,
   onEdit,
@@ -24,6 +25,7 @@ export function LabMarkerDetailModal({
 }: {
   marker: LabMarker;
   gang: Gang | null;
+  investigation: { id: string; titre: string } | null;
   lockedByOther: { pseudo: string } | null;
   onClose: () => void;
   onEdit: () => void;
@@ -105,6 +107,28 @@ export function LabMarkerDetailModal({
             )}
           </div>
         </div>
+
+        {marker.investigation_id && (
+          <div className="mt-4 border-t border-gtf-border pt-4">
+            <span className="font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
+              Enquête liée
+            </span>
+            <div className="mt-2">
+              {investigation ? (
+                <Link
+                  href={`/enquetes/${investigation.id}`}
+                  className="text-sm text-gtf-blue-hover underline"
+                >
+                  {investigation.titre}
+                </Link>
+              ) : (
+                <span className="text-sm text-gtf-text-muted">
+                  Enquête introuvable
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="mt-4 flex flex-wrap gap-2">
           {canWrite &&

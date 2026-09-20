@@ -22,6 +22,7 @@ import {
 } from "@/app/(app)/zones/lab-actions";
 import { ZoneDetailModal } from "./ZoneDetailModal";
 import { LabMarkerDetailModal } from "./LabMarkerDetailModal";
+import { InvestigationAutocomplete } from "./InvestigationAutocomplete";
 import type { Gang } from "@/lib/supabase/gangs-types";
 import type {
   SensitiveZone,
@@ -37,6 +38,9 @@ import {
   type LabMarker,
   type LabStatut,
 } from "@/lib/supabase/lab-markers-types";
+import type { Investigation } from "@/lib/supabase/investigations-types";
+
+type InvestigationOption = Pick<Investigation, "id" | "titre">;
 
 const MAP_LAYERS = [
   { value: "atlas", label: "Atlas", url: "/map/atlas.png" },
@@ -139,6 +143,65 @@ function FilterCheckbox({
   );
 }
 
+// Question "Lier ce labo à une enquête ?" (formulaires de placement et
+// d'édition d'un labo) : Oui/Non, avec recherche par titre parmi les
+// enquêtes existantes si Oui (pas de texte libre, voir
+// InvestigationAutocomplete).
+function LinkInvestigationField({
+  linked,
+  onLinkedChange,
+  investigationId,
+  onInvestigationIdChange,
+  investigations,
+  panelLabelClass,
+  panelSelectClass,
+}: {
+  linked: boolean;
+  onLinkedChange: (linked: boolean) => void;
+  investigationId: string;
+  onInvestigationIdChange: (id: string) => void;
+  investigations: InvestigationOption[];
+  panelLabelClass: string;
+  panelSelectClass: string;
+}) {
+  return (
+    <div className="mt-2">
+      <label className={panelLabelClass}>Lier ce labo à une enquête ?</label>
+      <div className="flex gap-3 text-xs text-gtf-text">
+        <label className="flex items-center gap-1.5">
+          <input
+            type="radio"
+            checked={!linked}
+            onChange={() => {
+              onLinkedChange(false);
+              onInvestigationIdChange("");
+            }}
+          />
+          Non
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input
+            type="radio"
+            checked={linked}
+            onChange={() => onLinkedChange(true)}
+          />
+          Oui
+        </label>
+      </div>
+      {linked && (
+        <div className="mt-2">
+          <InvestigationAutocomplete
+            investigations={investigations}
+            value={investigationId}
+            onChange={onInvestigationIdChange}
+            inputClassName={panelSelectClass}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function InteractiveMap({
   currentUserId,
   canWrite,
@@ -172,6 +235,9 @@ export function InteractiveMap({
   const [gangs, setGangs] = useState<Gang[]>([]);
   const [zones, setZones] = useState<SensitiveZone[]>([]);
   const [labMarkers, setLabMarkers] = useState<LabMarker[]>([]);
+  const [investigations, setInvestigations] = useState<InvestigationOption[]>(
+    [],
+  );
   const [locks, setLocks] = useState<Map<string, LockInfo>>(new Map());
   const [labLocks, setLabLocks] = useState<Map<string, LockInfo>>(new Map());
 
@@ -199,6 +265,9 @@ export function InteractiveMap({
   const [labPlaceCat, setLabPlaceCat] = useState<LabCategorie | "">("arme");
   const [labPlaceStatut, setLabPlaceStatut] = useState<LabStatut>("actif");
   const [labPlaceOrg, setLabPlaceOrg] = useState("");
+  const [labPlaceLinkInvestigation, setLabPlaceLinkInvestigation] =
+    useState(false);
+  const [labPlaceInvestigationId, setLabPlaceInvestigationId] = useState("");
   const [labPlaceError, setLabPlaceError] = useState<string | null>(null);
   const [labPlacePending, setLabPlacePending] = useState(false);
 
@@ -207,6 +276,9 @@ export function InteractiveMap({
   const [labEditCat, setLabEditCat] = useState<LabCategorie | "">("arme");
   const [labEditStatut, setLabEditStatut] = useState<LabStatut>("actif");
   const [labEditOrg, setLabEditOrg] = useState("");
+  const [labEditLinkInvestigation, setLabEditLinkInvestigation] =
+    useState(false);
+  const [labEditInvestigationId, setLabEditInvestigationId] = useState("");
   const [labEditError, setLabEditError] = useState<string | null>(null);
   const [labEditPending, setLabEditPending] = useState(false);
 
@@ -227,15 +299,25 @@ export function InteractiveMap({
 
   async function fetchMapData() {
     const supabase = createClient();
-    const [{ data: gangsData }, { data: zonesData }, { data: labsData }] =
-      await Promise.all([
-        supabase.from("gangs").select("*").returns<Gang[]>(),
-        supabase.from("sensitive_zones").select("*").returns<SensitiveZone[]>(),
-        supabase.from("lab_markers").select("*").returns<LabMarker[]>(),
-      ]);
+    const [
+      { data: gangsData },
+      { data: zonesData },
+      { data: labsData },
+      { data: investigationsData },
+    ] = await Promise.all([
+      supabase.from("gangs").select("*").returns<Gang[]>(),
+      supabase.from("sensitive_zones").select("*").returns<SensitiveZone[]>(),
+      supabase.from("lab_markers").select("*").returns<LabMarker[]>(),
+      supabase
+        .from("investigations")
+        .select("id, titre")
+        .order("titre", { ascending: true })
+        .returns<InvestigationOption[]>(),
+    ]);
     setGangs(gangsData ?? []);
     setZones(zonesData ?? []);
     setLabMarkers(labsData ?? []);
+    setInvestigations(investigationsData ?? []);
   }
 
   async function fetchLocks() {
@@ -733,6 +815,8 @@ export function InteractiveMap({
     setLabPlaceOrg("");
     setLabPlaceCat("arme");
     setLabPlaceStatut("actif");
+    setLabPlaceLinkInvestigation(false);
+    setLabPlaceInvestigationId("");
     setMode("lab-placing");
   }
 
@@ -751,6 +835,12 @@ export function InteractiveMap({
       setLabPlaceError("Sélectionnez une catégorie (sauf statut Potentiel).");
       return;
     }
+    if (labPlaceLinkInvestigation && !labPlaceInvestigationId) {
+      setLabPlaceError(
+        "Sélectionnez une enquête dans la liste (ou répondez Non).",
+      );
+      return;
+    }
     if (!labPlacePos) {
       setLabPlaceError("Cliquez sur la carte pour positionner le labo.");
       return;
@@ -762,6 +852,10 @@ export function InteractiveMap({
     formData.set("categorie", labPlaceCat);
     formData.set("statut", labPlaceStatut);
     formData.set("organisation_id", labPlaceOrg);
+    formData.set(
+      "investigation_id",
+      labPlaceLinkInvestigation ? labPlaceInvestigationId : "",
+    );
     formData.set("position", JSON.stringify(labPlacePos));
 
     const result = await createLabMarker(formData);
@@ -798,6 +892,8 @@ export function InteractiveMap({
     setLabEditCat(marker.categorie ?? "");
     setLabEditStatut(marker.statut);
     setLabEditOrg(marker.organisation_id);
+    setLabEditLinkInvestigation(!!marker.investigation_id);
+    setLabEditInvestigationId(marker.investigation_id ?? "");
     setLabEditError(null);
     setMode("lab-editing");
   }
@@ -825,6 +921,12 @@ export function InteractiveMap({
       setLabEditError("Sélectionnez une catégorie (sauf statut Potentiel).");
       return;
     }
+    if (labEditLinkInvestigation && !labEditInvestigationId) {
+      setLabEditError(
+        "Sélectionnez une enquête dans la liste (ou répondez Non).",
+      );
+      return;
+    }
     if (!labEditPos) {
       setLabEditError("Position invalide.");
       return;
@@ -837,6 +939,10 @@ export function InteractiveMap({
     formData.set("categorie", labEditCat);
     formData.set("statut", labEditStatut);
     formData.set("organisation_id", labEditOrg);
+    formData.set(
+      "investigation_id",
+      labEditLinkInvestigation ? labEditInvestigationId : "",
+    );
     formData.set("position", JSON.stringify(labEditPos));
 
     const result = await updateLabMarker(formData);
@@ -891,6 +997,11 @@ export function InteractiveMap({
   const selectedLabGang = selectedLab
     ? gangs.find((g) => g.id === selectedLab.organisation_id) ?? null
     : null;
+  const selectedLabInvestigation =
+    selectedLab && selectedLab.investigation_id
+      ? investigations.find((i) => i.id === selectedLab.investigation_id) ??
+        null
+      : null;
   const selectedLabLock = selectedLab
     ? labLocks.get(selectedLab.id)
     : undefined;
@@ -1203,6 +1314,15 @@ export function InteractiveMap({
                 ))}
               </select>
             </div>
+            <LinkInvestigationField
+              linked={labPlaceLinkInvestigation}
+              onLinkedChange={setLabPlaceLinkInvestigation}
+              investigationId={labPlaceInvestigationId}
+              onInvestigationIdChange={setLabPlaceInvestigationId}
+              investigations={investigations}
+              panelLabelClass={panelLabelClass}
+              panelSelectClass={panelSelectClass}
+            />
             <p className="mt-2 font-mono text-[11px] text-gtf-text-muted">
               {labPlacePos
                 ? "Position enregistrée — cliquez ailleurs pour la corriger."
@@ -1289,6 +1409,15 @@ export function InteractiveMap({
                 ))}
               </select>
             </div>
+            <LinkInvestigationField
+              linked={labEditLinkInvestigation}
+              onLinkedChange={setLabEditLinkInvestigation}
+              investigationId={labEditInvestigationId}
+              onInvestigationIdChange={setLabEditInvestigationId}
+              investigations={investigations}
+              panelLabelClass={panelLabelClass}
+              panelSelectClass={panelSelectClass}
+            />
             <p className="mt-2 font-mono text-[11px] text-gtf-text-muted">
               Glissez le marqueur pour le repositionner.
             </p>
@@ -1333,6 +1462,7 @@ export function InteractiveMap({
         <LabMarkerDetailModal
           marker={selectedLab}
           gang={selectedLabGang}
+          investigation={selectedLabInvestigation}
           lockedByOther={selectedLabLockedByOther}
           onClose={() => setSelectedLabId(null)}
           onEdit={() => startEditingLab(selectedLab)}
