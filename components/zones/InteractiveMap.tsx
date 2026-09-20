@@ -104,7 +104,7 @@ function makeLabIcon(
 
 const DEFAULT_FILTERS = {
   zoneVente: true,
-  zoneInfluence: true,
+  zoneQg: true,
   labArme: true,
   labCocaine: true,
   labMeth: true,
@@ -380,7 +380,7 @@ export function InteractiveMap({
       if (isBeingEdited) continue;
 
       if (zone.type_zone === "vente" && !filters.zoneVente) continue;
-      if (zone.type_zone === "influence" && !filters.zoneInfluence) continue;
+      if (zone.type_zone === "qg" && !filters.zoneQg) continue;
 
       const gang = gangsById.get(zone.gang_id);
       const color = gang?.couleur ?? "#8B94A0";
@@ -392,7 +392,7 @@ export function InteractiveMap({
         weight: 2,
         fillColor: color,
         fillOpacity: isLockedByOther ? 0.15 : 0.35,
-        dashArray: zone.type_zone === "influence" ? "6,6" : undefined,
+        dashArray: zone.type_zone === "qg" ? "6,6" : undefined,
       });
 
       if (isLockedByOther) {
@@ -417,7 +417,7 @@ export function InteractiveMap({
     editingZoneId,
     currentUserId,
     filters.zoneVente,
-    filters.zoneInfluence,
+    filters.zoneQg,
   ]);
 
   // --- Rendu des marqueurs laboratoire ---------------------------------
@@ -933,9 +933,9 @@ export function InteractiveMap({
                 onChange={() => toggleFilter("zoneVente")}
               />
               <FilterCheckbox
-                label="Influence"
-                checked={filters.zoneInfluence}
-                onChange={() => toggleFilter("zoneInfluence")}
+                label="QG"
+                checked={filters.zoneQg}
+                onChange={() => toggleFilter("zoneQg")}
               />
 
               <p className={`${panelLabelClass} mt-3`}>Laboratoires</p>
@@ -1027,7 +1027,7 @@ export function InteractiveMap({
                 className={panelSelectClass}
               >
                 <option value="vente">Vente</option>
-                <option value="influence">Influence</option>
+                <option value="qg">QG</option>
               </select>
             </div>
             <p className="mt-2 font-mono text-[11px] text-gtf-text-muted">
@@ -1091,7 +1091,7 @@ export function InteractiveMap({
                 className={panelSelectClass}
               >
                 <option value="vente">Vente</option>
-                <option value="influence">Influence</option>
+                <option value="qg">QG</option>
               </select>
             </div>
             <p className="mt-2 font-mono text-[11px] text-gtf-text-muted">

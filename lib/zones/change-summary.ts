@@ -1,6 +1,6 @@
 import type { SensitiveZone } from "@/lib/supabase/zones-types";
 
-const TYPE_LABELS = { vente: "Vente", influence: "Influence" } as const;
+const TYPE_LABELS = { vente: "Vente", qg: "QG" } as const;
 
 type ComparableFields = Pick<SensitiveZone, "gang_id" | "type_zone" | "points">;
 

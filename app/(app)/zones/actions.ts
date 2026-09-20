@@ -58,7 +58,7 @@ function parsePoints(raw: string): ZonePoint[] | null {
 }
 
 function parseTypeZone(raw: string): ZoneType | null {
-  return raw === "vente" || raw === "influence" ? raw : null;
+  return raw === "vente" || raw === "qg" ? raw : null;
 }
 
 export async function createZone(formData: FormData): Promise<ActionResult> {

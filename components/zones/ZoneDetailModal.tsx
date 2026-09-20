@@ -10,7 +10,7 @@ import type {
   ZoneHistoryEntry,
 } from "@/lib/supabase/zones-types";
 
-const TYPE_LABELS = { vente: "Vente", influence: "Influence" } as const;
+const TYPE_LABELS = { vente: "Vente", qg: "QG" } as const;
 
 export function ZoneDetailModal({
   zone,

@@ -1,4 +1,4 @@
-export type ZoneType = "vente" | "influence";
+export type ZoneType = "vente" | "qg";
 
 export type ZonePoint = { x: number; y: number };
 
