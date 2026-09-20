@@ -14,11 +14,23 @@ const CATEGORIE_STYLES: Record<LabCategorie, string> = {
   meth: "border-gtf-green text-gtf-green bg-gtf-green/10",
 };
 
+// categorie === null : labo "potentiel" dont le type n'est pas encore
+// déterminé (voir lib/supabase/lab-markers-types.ts).
+const CATEGORIE_INCONNUE_STYLE =
+  "border-gtf-amber text-gtf-amber bg-gtf-amber/10";
+
 export function LabCategorieBadge({
   categorie,
 }: {
-  categorie: LabCategorie;
+  categorie: LabCategorie | null;
 }) {
+  if (!categorie) {
+    return (
+      <span className={`${badgeBase} ${CATEGORIE_INCONNUE_STYLE}`}>
+        Non déterminée
+      </span>
+    );
+  }
   return (
     <span className={`${badgeBase} ${CATEGORIE_STYLES[categorie] ?? CATEGORIE_STYLES.arme}`}>
       {LAB_CATEGORIE_LABELS[categorie] ?? categorie}
@@ -29,6 +41,7 @@ export function LabCategorieBadge({
 const STATUT_STYLES: Record<LabStatut, string> = {
   actif: "border-gtf-green text-gtf-green bg-gtf-green/10",
   raided: "border-gtf-red text-gtf-red bg-gtf-red/10",
+  potentiel: "border-gtf-amber text-gtf-amber bg-gtf-amber/10",
 };
 
 export function LabStatutBadge({ statut }: { statut: LabStatut }) {

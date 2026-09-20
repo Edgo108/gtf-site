@@ -9,6 +9,7 @@ import { LOCK_DURATION_MS } from "@/lib/supabase/zones-types";
 import {
   isLabCategorie,
   isLabStatut,
+  type LabCategorie,
   type LabMarker,
   type LabMarkerPosition,
 } from "@/lib/supabase/lab-markers-types";
@@ -59,6 +60,28 @@ function parsePosition(raw: string): LabMarkerPosition | null {
   }
 }
 
+// Catégorie obligatoire sauf statut "potentiel" (labo repéré mais pas
+// encore confirmé) — même règle que la contrainte
+// lab_markers_categorie_required_unless_potentiel en base.
+function parseCategorieAndStatut(
+  formData: FormData,
+  fallbackStatut: LabMarker["statut"],
+): { categorie: LabCategorie | null; statut: LabMarker["statut"] } | { error: string } {
+  const categorieRaw = String(formData.get("categorie") ?? "").trim();
+  const statutRaw = String(formData.get("statut") ?? "");
+  const statut = isLabStatut(statutRaw) ? statutRaw : fallbackStatut;
+
+  let categorie: LabCategorie | null = null;
+  if (categorieRaw) {
+    if (!isLabCategorie(categorieRaw)) return { error: "Catégorie invalide." };
+    categorie = categorieRaw;
+  } else if (statut !== "potentiel") {
+    return { error: "La catégorie est obligatoire (sauf statut Potentiel)." };
+  }
+
+  return { categorie, statut };
+}
+
 export async function createLabMarker(
   formData: FormData,
 ): Promise<ActionResult> {
@@ -66,20 +89,20 @@ export async function createLabMarker(
 
   if (!uniteCanWrite("zones", profile)) return { error: NO_WRITE_LABS };
 
-  const categorieRaw = String(formData.get("categorie") ?? "");
-  const statutRaw = String(formData.get("statut") ?? "actif");
   const organisation_id = String(formData.get("organisation_id") ?? "");
   const position = parsePosition(String(formData.get("position") ?? ""));
 
-  if (!isLabCategorie(categorieRaw)) return { error: "Catégorie invalide." };
+  const parsed = parseCategorieAndStatut(formData, "actif");
+  if ("error" in parsed) return { error: parsed.error };
+  const { categorie, statut } = parsed;
+
   if (!organisation_id) return { error: "L'organisation est obligatoire." };
   if (!position) return { error: "Position invalide." };
-  const statut = isLabStatut(statutRaw) ? statutRaw : "actif";
 
   const { data, error } = await supabase
     .from("lab_markers")
     .insert({
-      categorie: categorieRaw,
+      categorie,
       statut,
       organisation_id,
       position,
@@ -121,17 +144,14 @@ export async function updateLabMarker(
 
   if (!oldMarker) return { error: "Marqueur introuvable." };
 
-  const categorieRaw = String(formData.get("categorie") ?? "");
-  const statutRaw = String(formData.get("statut") ?? "");
   const organisation_id =
     String(formData.get("organisation_id") ?? "") || oldMarker.organisation_id;
   const position =
     parsePosition(String(formData.get("position") ?? "")) ?? oldMarker.position;
 
-  const categorie = isLabCategorie(categorieRaw)
-    ? categorieRaw
-    : oldMarker.categorie;
-  const statut = isLabStatut(statutRaw) ? statutRaw : oldMarker.statut;
+  const parsed = parseCategorieAndStatut(formData, oldMarker.statut);
+  if ("error" in parsed) return { error: parsed.error };
+  const { categorie, statut } = parsed;
 
   if (!organisation_id) return { error: "L'organisation est obligatoire." };
 

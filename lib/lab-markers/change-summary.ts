@@ -16,9 +16,10 @@ export function buildLabMarkerChangeSummary(
   const changes: string[] = [];
 
   if (before.categorie !== after.categorie) {
-    changes.push(
-      `Catégorie changée en « ${LAB_CATEGORIE_LABELS[after.categorie]} »`,
-    );
+    const label = after.categorie
+      ? LAB_CATEGORIE_LABELS[after.categorie]
+      : "Non déterminée";
+    changes.push(`Catégorie changée en « ${label} »`);
   }
   if (before.statut !== after.statut) {
     changes.push(`Statut changé en « ${LAB_STATUT_LABELS[after.statut]} »`);

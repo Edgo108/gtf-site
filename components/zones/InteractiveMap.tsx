@@ -82,7 +82,7 @@ function labScaleForZoom(map: L.Map): number {
 }
 
 function makeLabIcon(
-  categorie: LabCategorie,
+  categorie: LabCategorie | null,
   statut: LabStatut,
   scale = 1,
 ): L.Icon {
@@ -90,7 +90,10 @@ function makeLabIcon(
   const h = Math.max(8, Math.round(LAB_ICON_H * scale));
   const tip = Math.round(2 * scale);
   return L.icon({
-    iconUrl: labMarkerIconUrl(categorie),
+    // Icône déterminée uniquement par le statut : "?" pour un labo
+    // potentiel (categorie inconnue ou pas encore confirmée), quelle
+    // que soit la valeur de categorie — voir labMarkerIconUrl.
+    iconUrl: labMarkerIconUrl({ statut, categorie }),
     iconSize: [w, h],
     iconAnchor: [w / 2, h - tip],
     tooltipAnchor: [0, -(h - tip)],
@@ -110,6 +113,7 @@ const DEFAULT_FILTERS = {
   labMeth: true,
   labActif: true,
   labRaided: true,
+  labPotentiel: true,
 };
 type FilterKey = keyof typeof DEFAULT_FILTERS;
 
@@ -192,7 +196,7 @@ export function InteractiveMap({
 
   // --- labos : placement / édition ---
   const [labPlacePos, setLabPlacePos] = useState<ZonePoint | null>(null);
-  const [labPlaceCat, setLabPlaceCat] = useState<LabCategorie>("arme");
+  const [labPlaceCat, setLabPlaceCat] = useState<LabCategorie | "">("arme");
   const [labPlaceStatut, setLabPlaceStatut] = useState<LabStatut>("actif");
   const [labPlaceOrg, setLabPlaceOrg] = useState("");
   const [labPlaceError, setLabPlaceError] = useState<string | null>(null);
@@ -200,7 +204,7 @@ export function InteractiveMap({
 
   const [editingLabId, setEditingLabId] = useState<string | null>(null);
   const [labEditPos, setLabEditPos] = useState<ZonePoint | null>(null);
-  const [labEditCat, setLabEditCat] = useState<LabCategorie>("arme");
+  const [labEditCat, setLabEditCat] = useState<LabCategorie | "">("arme");
   const [labEditStatut, setLabEditStatut] = useState<LabStatut>("actif");
   const [labEditOrg, setLabEditOrg] = useState("");
   const [labEditError, setLabEditError] = useState<string | null>(null);
@@ -427,7 +431,7 @@ export function InteractiveMap({
     if (!group) return;
     group.clearLayers();
 
-    const catShown: Record<LabMarker["categorie"], boolean> = {
+    const catShown: Record<LabCategorie, boolean> = {
       arme: filters.labArme,
       cocaine: filters.labCocaine,
       meth: filters.labMeth,
@@ -436,9 +440,12 @@ export function InteractiveMap({
     for (const marker of labMarkers) {
       if (mode === "lab-editing" && marker.id === editingLabId) continue;
 
-      if (!catShown[marker.categorie]) continue;
+      // Catégorie inconnue (labo "potentiel" sans catégorie renseignée) :
+      // pas concernée par les filtres Arme/Cocaïne/Meth, toujours montrée.
+      if (marker.categorie && !catShown[marker.categorie]) continue;
       if (marker.statut === "actif" && !filters.labActif) continue;
       if (marker.statut === "raided" && !filters.labRaided) continue;
+      if (marker.statut === "potentiel" && !filters.labPotentiel) continue;
 
       const lock = labLocks.get(marker.id);
       const isLockedByOther = !!lock && lock.locked_by !== currentUserId;
@@ -473,6 +480,7 @@ export function InteractiveMap({
     filters.labMeth,
     filters.labActif,
     filters.labRaided,
+    filters.labPotentiel,
   ]);
 
   // --- Aperçu du dessin d'une nouvelle zone -----------------------------
@@ -543,7 +551,7 @@ export function InteractiveMap({
 
     if (mode === "lab-placing" && labPlacePos) {
       L.marker([labPlacePos.y, labPlacePos.x], {
-        icon: makeLabIcon(labPlaceCat, labPlaceStatut, labIconScale),
+        icon: makeLabIcon(labPlaceCat || null, labPlaceStatut, labIconScale),
         interactive: false,
         opacity: 0.85,
       }).addTo(group);
@@ -565,7 +573,7 @@ export function InteractiveMap({
     if (!start) return;
 
     const marker = L.marker([start.y, start.x], {
-      icon: makeLabIcon(labEditCat, labEditStatut, labIconScale),
+      icon: makeLabIcon(labEditCat || null, labEditStatut, labIconScale),
       draggable: true,
     }).addTo(group);
 
@@ -739,6 +747,10 @@ export function InteractiveMap({
       setLabPlaceError("Sélectionnez une organisation.");
       return;
     }
+    if (!labPlaceCat && labPlaceStatut !== "potentiel") {
+      setLabPlaceError("Sélectionnez une catégorie (sauf statut Potentiel).");
+      return;
+    }
     if (!labPlacePos) {
       setLabPlaceError("Cliquez sur la carte pour positionner le labo.");
       return;
@@ -783,7 +795,7 @@ export function InteractiveMap({
     setEditingLabId(marker.id);
     setLabEditPos(marker.position);
     labEditPosRef.current = marker.position;
-    setLabEditCat(marker.categorie);
+    setLabEditCat(marker.categorie ?? "");
     setLabEditStatut(marker.statut);
     setLabEditOrg(marker.organisation_id);
     setLabEditError(null);
@@ -807,6 +819,10 @@ export function InteractiveMap({
     if (!editingLabId) return;
     if (!labEditOrg) {
       setLabEditError("Sélectionnez une organisation.");
+      return;
+    }
+    if (!labEditCat && labEditStatut !== "potentiel") {
+      setLabEditError("Sélectionnez une catégorie (sauf statut Potentiel).");
       return;
     }
     if (!labEditPos) {
@@ -965,6 +981,11 @@ export function InteractiveMap({
                 label="Raid effectué"
                 checked={filters.labRaided}
                 onChange={() => toggleFilter("labRaided")}
+              />
+              <FilterCheckbox
+                label="Potentiel"
+                checked={filters.labPotentiel}
+                onChange={() => toggleFilter("labPotentiel")}
               />
 
               {someFilterHidden && (
@@ -1130,10 +1151,13 @@ export function InteractiveMap({
               <select
                 value={labPlaceCat}
                 onChange={(e) =>
-                  setLabPlaceCat(e.target.value as LabCategorie)
+                  setLabPlaceCat(e.target.value as LabCategorie | "")
                 }
                 className={panelSelectClass}
               >
+                {labPlaceStatut === "potentiel" && (
+                  <option value="">Non déterminée</option>
+                )}
                 {LAB_CATEGORIE_OPTIONS.map((c) => (
                   <option key={c.value} value={c.value}>
                     {c.label}
@@ -1145,9 +1169,16 @@ export function InteractiveMap({
               <label className={panelLabelClass}>Statut</label>
               <select
                 value={labPlaceStatut}
-                onChange={(e) =>
-                  setLabPlaceStatut(e.target.value as LabStatut)
-                }
+                onChange={(e) => {
+                  const nextStatut = e.target.value as LabStatut;
+                  setLabPlaceStatut(nextStatut);
+                  // Catégorie laissée vide en quittant "Potentiel" :
+                  // revient sur une valeur valide plutôt qu'un select
+                  // vidé de son option "Non déterminée".
+                  if (nextStatut !== "potentiel" && !labPlaceCat) {
+                    setLabPlaceCat("arme");
+                  }
+                }}
                 className={panelSelectClass}
               >
                 {LAB_STATUT_OPTIONS.map((s) => (
@@ -1209,9 +1240,14 @@ export function InteractiveMap({
               <label className={panelLabelClass}>Catégorie</label>
               <select
                 value={labEditCat}
-                onChange={(e) => setLabEditCat(e.target.value as LabCategorie)}
+                onChange={(e) =>
+                  setLabEditCat(e.target.value as LabCategorie | "")
+                }
                 className={panelSelectClass}
               >
+                {labEditStatut === "potentiel" && (
+                  <option value="">Non déterminée</option>
+                )}
                 {LAB_CATEGORIE_OPTIONS.map((c) => (
                   <option key={c.value} value={c.value}>
                     {c.label}
@@ -1223,7 +1259,13 @@ export function InteractiveMap({
               <label className={panelLabelClass}>Statut</label>
               <select
                 value={labEditStatut}
-                onChange={(e) => setLabEditStatut(e.target.value as LabStatut)}
+                onChange={(e) => {
+                  const nextStatut = e.target.value as LabStatut;
+                  setLabEditStatut(nextStatut);
+                  if (nextStatut !== "potentiel" && !labEditCat) {
+                    setLabEditCat("arme");
+                  }
+                }}
                 className={panelSelectClass}
               >
                 {LAB_STATUT_OPTIONS.map((s) => (

@@ -1,15 +1,23 @@
 # Icônes des marqueurs « Laboratoire »
 
-La carte interactive (`/zones`) affiche une icône par catégorie de labo :
+La carte interactive (`/zones`) affiche une icône par catégorie de labo,
+plus une icône dédiée au statut « Potentiel » :
 
-| Fichier             | Catégorie | Utilisé par                          |
-| ------------------- | --------- | ------------------------------------ |
-| `arme.png`          | Arme      | `labMarkerIconUrl("arme")`           |
-| `cocaine.png`       | Cocaïne   | `labMarkerIconUrl("cocaine")`        |
-| `meth.png`          | Meth      | `labMarkerIconUrl("meth")`           |
+| Fichier             | Catégorie / statut  | Utilisé par                                        |
+| ------------------- | ------------------- | --------------------------------------------------- |
+| `arme.png`          | Arme                | `labMarkerIconUrl({ statut: "actif", categorie: "arme" })` |
+| `cocaine.png`       | Cocaïne             | `labMarkerIconUrl({ statut: "actif", categorie: "cocaine" })` |
+| `meth.png`          | Meth                | `labMarkerIconUrl({ statut: "actif", categorie: "meth" })` |
+| `potentiel.png`     | Statut « Potentiel » | `labMarkerIconUrl({ statut: "potentiel", categorie: null })` |
+
+Le choix de l'icône est **entièrement automatique**, basé sur le statut
+du marqueur (jamais un choix manuel) : `potentiel.png` s'affiche pour
+tout labo au statut « Potentiel », quelle que soit sa catégorie
+(renseignée ou non) — voir `labMarkerIconUrl` dans
+`lib/supabase/lab-markers-types.ts`.
 
 Pour remplacer une icône, dépose un fichier avec **exactement le même
-nom** (`arme.png`, `cocaine.png`, `meth.png`).
+nom** (`arme.png`, `cocaine.png`, `meth.png`, `potentiel.png`).
 
 Recommandations :
 
