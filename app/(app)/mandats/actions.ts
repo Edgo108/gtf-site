@@ -83,7 +83,11 @@ async function uploadWantedPhoto(
 // superflus, pas de floue) avec un membre de gang_members appartenant à
 // une organisation non archivée (gangs.deleted_at is null, déjà filtré
 // par RLS). Recalculée à chaque création/modification du mandat — pas de
-// mise à jour si gang_members change indépendamment entretemps.
+// mise à jour si gang_members change indépendamment entretemps (ce sens
+// inverse est couvert par le trigger DB de
+// supabase/wanted_notice_organisation_sync.sql, qui applique la même
+// règle de départage : en cas d'homonymes dans des organisations
+// différentes, le membre le plus ancien l'emporte).
 async function resolveOrganisationGangId(
   supabase: ServerSupabase,
   nomSuspect: string,
@@ -92,7 +96,10 @@ async function resolveOrganisationGangId(
   if (!target) return null;
 
   const [{ data: members }, { data: gangs }] = await Promise.all([
-    supabase.from("gang_members").select("nom, gang_id"),
+    supabase
+      .from("gang_members")
+      .select("nom, gang_id")
+      .order("created_at", { ascending: true }),
     supabase.from("gangs").select("id"),
   ]);
 

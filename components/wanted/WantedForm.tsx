@@ -52,6 +52,7 @@ export function WantedForm({ notice }: { notice?: WantedNotice }) {
         supabase
           .from("gang_members")
           .select("nom, gang_id")
+          .order("created_at", { ascending: true })
           .returns<Pick<GangMember, "nom" | "gang_id">[]>(),
         supabase.from("gangs").select("id, nom").returns<Pick<Gang, "id" | "nom">[]>(),
       ]);
