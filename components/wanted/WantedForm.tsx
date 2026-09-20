@@ -1,9 +1,21 @@
 "use client";
 
-import { useState, useTransition, type ChangeEvent } from "react";
+import { useEffect, useState, useTransition, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createWantedNotice, updateWantedNotice } from "@/app/(app)/mandats/actions";
+import { createClient } from "@/lib/supabase/client";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
+import type { Gang, GangMember } from "@/lib/supabase/gangs-types";
+
+const AUCUNE_ORGANISATION = "Aucune organisation identifiée";
+
+// Nom + prénom insensibles à la casse et aux espaces superflus, mais pas
+// de correspondance floue/partielle (voir résolution ci-dessous).
+function normalizeName(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+type OrganisationEntry = { nomNormalized: string; orgNom: string };
 
 const NIVEAUX = [
   { value: "faible", label: "Faible" },
@@ -28,6 +40,45 @@ export function WantedForm({ notice }: { notice?: WantedNotice }) {
   const [preview, setPreview] = useState<string | null>(
     notice?.photo_url ?? null,
   );
+  const [nomSuspect, setNomSuspect] = useState(notice?.nom_suspect ?? "");
+  const [organisations, setOrganisations] = useState<OrganisationEntry[]>([]);
+
+  useEffect(() => {
+    // Annuaire membre → organisation (B.D.D) chargé une fois à
+    // l'ouverture du formulaire, pour la détection automatique
+    // d'organisation ci-dessous. Pas besoin de rafraîchissement temps
+    // réel si la B.D.D. change entretemps : le recalcul n'a lieu qu'à
+    // l'enregistrement du mandat.
+    fetchOrganisationDirectory();
+
+    async function fetchOrganisationDirectory() {
+      const supabase = createClient();
+      const [{ data: members }, { data: gangs }] = await Promise.all([
+        supabase
+          .from("gang_members")
+          .select("nom, gang_id")
+          .returns<Pick<GangMember, "nom" | "gang_id">[]>(),
+        supabase.from("gangs").select("id, nom").returns<Pick<Gang, "id" | "nom">[]>(),
+      ]);
+
+      const orgNomById = new Map((gangs ?? []).map((g) => [g.id, g.nom]));
+
+      setOrganisations(
+        (members ?? []).flatMap((member) => {
+          const orgNom = orgNomById.get(member.gang_id);
+          return orgNom
+            ? [{ nomNormalized: normalizeName(member.nom), orgNom }]
+            : [];
+        }),
+      );
+    }
+  }, []);
+
+  const normalizedSuspect = normalizeName(nomSuspect);
+  const organisationDetectee = normalizedSuspect
+    ? organisations.find((entry) => entry.nomNormalized === normalizedSuspect)
+        ?.orgNom ?? AUCUNE_ORGANISATION
+    : AUCUNE_ORGANISATION;
 
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -91,9 +142,19 @@ export function WantedForm({ notice }: { notice?: WantedNotice }) {
           name="nom_suspect"
           type="text"
           required
-          defaultValue={notice?.nom_suspect}
+          value={nomSuspect}
+          onChange={(event) => setNomSuspect(event.target.value)}
           className={fieldClass}
         />
+        <div className="mt-2">
+          <span className={labelClass}>Organisation détectée</span>
+          <div
+            aria-readonly="true"
+            className="w-full cursor-default select-none rounded border border-gtf-border/60 bg-gtf-panel px-3 py-2 text-sm text-gtf-text-muted"
+          >
+            {organisationDetectee}
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
