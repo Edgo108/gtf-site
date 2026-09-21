@@ -10,11 +10,9 @@ import {
   type SyntheticEvent,
 } from "react";
 import { findNameSuggestion } from "@/lib/suggestions/names";
+import { fieldClass } from "@/lib/ui/styles";
 
 type FieldElement = HTMLInputElement | HTMLTextAreaElement;
-
-const fieldClass =
-  "w-full rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none";
 
 // Champ de saisie avec suggestion de nom en texte fantôme façon Gmail :
 // dès que le texte tapé est le début (sans tenir compte de la casse ni

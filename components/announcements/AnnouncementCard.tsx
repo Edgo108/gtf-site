@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   markAnnouncementRead,
   deleteAnnouncement,
 } from "@/app/(app)/annonces/actions";
+import { ActionButton } from "@/components/ui/ActionButton";
+import { BADGE_TONES, badgeBase, btn } from "@/lib/ui/styles";
 import type { Announcement } from "@/lib/supabase/announcements-types";
 
 export function AnnouncementCard({
@@ -17,47 +19,10 @@ export function AnnouncementCard({
   isRead: boolean;
   canManage: boolean;
 }) {
-  const [pending, startTransition] = useTransition();
   const [read, setRead] = useState(isRead);
   const [deleted, setDeleted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const isUrgent = announcement.priorite === "urgente";
-
-  function handleMarkRead() {
-    setError(null);
-    const formData = new FormData();
-    formData.set("announcement_id", announcement.id);
-
-    startTransition(async () => {
-      const result = await markAnnouncementRead(formData);
-      if (result?.error) {
-        setError(result.error);
-        return;
-      }
-      setRead(true);
-    });
-  }
-
-  function handleDelete() {
-    if (
-      !window.confirm(`Supprimer la notification « ${announcement.titre} » ?`)
-    ) {
-      return;
-    }
-    setError(null);
-    const formData = new FormData();
-    formData.set("id", announcement.id);
-
-    startTransition(async () => {
-      const result = await deleteAnnouncement(formData);
-      if (result?.error) {
-        setError(result.error);
-        return;
-      }
-      setDeleted(true);
-    });
-  }
 
   if (deleted) {
     return null;
@@ -72,7 +37,7 @@ export function AnnouncementCard({
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {!read && (
             <span
               className="h-2 w-2 shrink-0 rounded-full bg-gtf-blue-hover"
@@ -81,9 +46,7 @@ export function AnnouncementCard({
             />
           )}
           {isUrgent && (
-            <span className="rounded border border-gtf-red bg-gtf-red/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-gtf-red">
-              Urgent
-            </span>
+            <span className={`${badgeBase} ${BADGE_TONES.red}`}>Urgent</span>
           )}
           <h2 className="font-display text-base font-semibold uppercase tracking-wide text-gtf-text">
             {announcement.titre}
@@ -94,44 +57,45 @@ export function AnnouncementCard({
         </span>
       </div>
 
-      <p className="mt-2 whitespace-pre-wrap text-sm text-gtf-text">
+      <p className="mt-2 whitespace-pre-wrap break-words text-sm text-gtf-text">
         {announcement.message}
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2">
         {!read && (
-          <button
-            onClick={handleMarkRead}
-            disabled={pending}
-            className="rounded border border-gtf-blue px-3 py-1 text-xs uppercase tracking-wider text-gtf-blue-hover hover:bg-gtf-blue/10 disabled:opacity-60"
+          <ActionButton
+            action={markAnnouncementRead}
+            fields={{ announcement_id: announcement.id }}
+            success="Annonce marquée comme lue"
+            variant="info"
+            size="sm"
+            onSuccess={() => setRead(true)}
           >
             Marquer comme lu
-          </button>
+          </ActionButton>
         )}
         {canManage && (
           <>
             <Link
               href={`/annonces/${announcement.id}/modifier`}
-              className="rounded border border-gtf-border px-3 py-1 text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
+              className={btn("secondary", "sm")}
             >
               Modifier
             </Link>
-            <button
-              onClick={handleDelete}
-              disabled={pending}
-              className="rounded border border-gtf-red px-3 py-1 text-xs uppercase tracking-wider text-gtf-red hover:bg-gtf-red/10 disabled:opacity-60"
+            <ActionButton
+              action={deleteAnnouncement}
+              fields={{ id: announcement.id }}
+              confirm={`Supprimer la notification « ${announcement.titre} » ?`}
+              success="Annonce supprimée"
+              variant="danger"
+              size="sm"
+              onSuccess={() => setDeleted(true)}
             >
               Supprimer
-            </button>
+            </ActionButton>
           </>
         )}
       </div>
-
-      {error && (
-        <p role="alert" className="mt-2 text-xs text-gtf-red">
-          {error}
-        </p>
-      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Panel } from "@/components/ui/Panel";
+import { AgentStatutBadge } from "@/components/admin/AgentStatutBadge";
 import { ChangePasswordForm } from "@/components/auth/ChangePasswordForm";
 import { UNITE_LABELS, isUnite } from "@/lib/permissions";
 import type { Profile } from "@/lib/supabase/types";
@@ -48,15 +49,7 @@ export default async function ProfilPage() {
             Statut
           </dt>
           <dd>
-            <span
-              className={
-                profile?.statut === "actif"
-                  ? "text-gtf-green"
-                  : "text-gtf-red"
-              }
-            >
-              {profile?.statut}
-            </span>
+            {profile && <AgentStatutBadge statut={profile.statut} />}
           </dd>
         </dl>
         <p className="mt-4 text-xs text-gtf-text-muted">

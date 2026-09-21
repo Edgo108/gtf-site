@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { GANG_CATEGORIE_OPTIONS } from "@/lib/supabase/gangs-types";
+import { inputBase } from "@/lib/ui/styles";
 
 const NIVEAUX = [
   { value: "", label: "Tous les niveaux" },
@@ -57,12 +58,12 @@ export function GangFilterBar() {
           if (e.key === "Enter") updateParams({ q });
         }}
         onBlur={() => updateParams({ q })}
-        className="min-w-[220px] flex-1 rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+        className={`min-w-[220px] flex-1 ${inputBase}`}
       />
       <select
         defaultValue={searchParams.get("categorie") ?? ""}
         onChange={(e) => updateParams({ categorie: e.target.value })}
-        className="rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+        className={inputBase}
       >
         {CATEGORIES.map((c) => (
           <option key={c.value} value={c.value}>
@@ -73,7 +74,7 @@ export function GangFilterBar() {
       <select
         defaultValue={searchParams.get("niveau") ?? ""}
         onChange={(e) => updateParams({ niveau: e.target.value })}
-        className="rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+        className={inputBase}
       >
         {NIVEAUX.map((n) => (
           <option key={n.value} value={n.value}>

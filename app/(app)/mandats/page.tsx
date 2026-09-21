@@ -5,6 +5,7 @@ import { WantedCard } from "@/components/wanted/WantedCard";
 import { FilterBar } from "@/components/wanted/FilterBar";
 import { uniteCanWrite } from "@/lib/permissions";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
+import { btn } from "@/lib/ui/styles";
 
 export default async function MandatsPage({
   searchParams,
@@ -48,7 +49,10 @@ export default async function MandatsPage({
     query = query.eq("niveau_dangerosite", niveau);
   }
 
-  const { data: notices } = await query.returns<WantedNotice[]>();
+  const { data: notices, error } = await query.returns<WantedNotice[]>();
+  if (error) {
+    throw new Error("Chargement des mandats impossible.");
+  }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -59,7 +63,7 @@ export default async function MandatsPage({
         {canWrite && (
           <Link
             href="/mandats/nouveau"
-            className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
+            className={btn("primary", "md")}
           >
             Nouveau mandat
           </Link>

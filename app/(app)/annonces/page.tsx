@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AnnouncementCard } from "@/components/announcements/AnnouncementCard";
 import { canAuthorAnnouncements, uniteCanWrite } from "@/lib/permissions";
 import type { Announcement } from "@/lib/supabase/announcements-types";
+import { btn } from "@/lib/ui/styles";
 
 export default async function AnnoncesPage() {
   const supabase = await createClient();
@@ -43,7 +44,7 @@ export default async function AnnoncesPage() {
         {canCreate && (
           <Link
             href="/annonces/nouvelle"
-            className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
+            className={btn("primary", "md")}
           >
             Nouvelle notification
           </Link>

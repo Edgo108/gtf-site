@@ -6,7 +6,16 @@ import {
   updateGangMember,
   deleteGangMember,
 } from "@/app/(app)/gangs/actions";
+import { ActionButton } from "@/components/ui/ActionButton";
+import { Spinner } from "@/components/ui/Spinner";
 import { MemberStatutBadge } from "./MemberStatutBadge";
+import { useActionRunner } from "@/lib/ui/use-action-runner";
+import {
+  btn,
+  fieldCompactClass,
+  inputBase,
+  labelClass,
+} from "@/lib/ui/styles";
 import type { GangMember, MembreStatut } from "@/lib/supabase/gangs-types";
 
 const STATUTS: { value: MembreStatut; label: string }[] = [
@@ -15,9 +24,6 @@ const STATUTS: { value: MembreStatut; label: string }[] = [
   { value: "arrete", label: "Arrêté" },
   { value: "decede", label: "Décédé" },
 ];
-
-const inputClass =
-  "rounded border border-gtf-border bg-gtf-panel px-2 py-1.5 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none";
 
 export function MembersList({
   gangId,
@@ -33,7 +39,7 @@ export function MembersList({
       {canWrite && <AddMemberForm gangId={gangId} />}
 
       <div className="overflow-x-auto rounded-md border border-gtf-border">
-        <table className="w-full text-left text-sm">
+        <table className="gtf-stack w-full text-left text-sm">
           <thead>
             <tr className="border-b border-gtf-border bg-gtf-panel-alt font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
               <th className="px-4 py-3">Nom</th>
@@ -69,6 +75,7 @@ export function MembersList({
 }
 
 function AddMemberForm({ gangId }: { gangId: string }) {
+  const run = useActionRunner();
   const formRef = useRef<HTMLFormElement>(null);
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -79,7 +86,10 @@ function AddMemberForm({ gangId }: { gangId: string }) {
     formData.set("gang_id", gangId);
 
     startTransition(async () => {
-      const result = await createGangMember(formData);
+      const result = await run(() => createGangMember(formData), {
+        success: "Membre ajouté",
+        inline: true,
+      });
       if (result?.error) {
         setError(result.error);
         return;
@@ -93,7 +103,7 @@ function AddMemberForm({ gangId }: { gangId: string }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="self-start rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
+        className={btn("primary", "md", "self-start")}
       >
         Ajouter un membre
       </button>
@@ -104,43 +114,39 @@ function AddMemberForm({ gangId }: { gangId: string }) {
     <form
       ref={formRef}
       action={handleAction}
-      className="flex flex-wrap items-end gap-3 rounded-md border border-gtf-border bg-gtf-panel-alt p-3"
+      className="flex flex-wrap items-end gap-4 rounded-md border border-gtf-border bg-gtf-panel-alt p-4"
     >
-      <div>
-        <label
-          htmlFor="new-member-nom"
-          className="mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted"
-        >
+      <div className="w-full sm:w-auto">
+        <label htmlFor="new-member-nom" className={labelClass}>
           Nom
         </label>
-        <input id="new-member-nom" name="nom" required className={inputClass} />
+        <input
+          id="new-member-nom"
+          name="nom"
+          required
+          className={`${inputBase} w-full sm:w-auto`}
+        />
       </div>
-      <div>
-        <label
-          htmlFor="new-member-role"
-          className="mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted"
-        >
+      <div className="w-full sm:w-auto">
+        <label htmlFor="new-member-role" className={labelClass}>
           Rôle
         </label>
         <input
           id="new-member-role"
           name="role"
           placeholder="Chef, Lieutenant, Membre..."
-          className={inputClass}
+          className={`${inputBase} w-full sm:w-auto`}
         />
       </div>
-      <div>
-        <label
-          htmlFor="new-member-statut"
-          className="mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted"
-        >
+      <div className="w-full sm:w-auto">
+        <label htmlFor="new-member-statut" className={labelClass}>
           Statut
         </label>
         <select
           id="new-member-statut"
           name="statut"
           defaultValue="actif"
-          className={inputClass}
+          className={`${inputBase} w-full sm:w-auto`}
         >
           {STATUTS.map((s) => (
             <option key={s.value} value={s.value}>
@@ -153,14 +159,17 @@ function AddMemberForm({ gangId }: { gangId: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover disabled:opacity-60"
+        aria-busy={pending}
+        className={btn("primary")}
       >
-        {pending ? "..." : "Ajouter"}
+        {pending && <Spinner className="h-3 w-3" />}
+        Ajouter
       </button>
       <button
         type="button"
         onClick={() => setOpen(false)}
-        className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
+        disabled={pending}
+        className={btn("secondary")}
       >
         Annuler
       </button>
@@ -183,6 +192,7 @@ function MemberRow({
   member: GangMember;
   canWrite: boolean;
 }) {
+  const run = useActionRunner();
   const [editing, setEditing] = useState(false);
   const [nom, setNom] = useState(member.nom);
   const [role, setRole] = useState(member.role);
@@ -200,7 +210,10 @@ function MemberRow({
     formData.set("statut", statut);
 
     startTransition(async () => {
-      const result = await updateGangMember(formData);
+      const result = await run(() => updateGangMember(formData), {
+        success: "Membre mis à jour",
+        inline: true,
+      });
       if (result?.error) {
         setError(result.error);
         return;
@@ -209,51 +222,36 @@ function MemberRow({
     });
   }
 
-  function handleDelete() {
-    if (!window.confirm(`Retirer "${member.nom}" de la liste des membres ?`)) {
-      return;
-    }
-    setError(null);
-    const formData = new FormData();
-    formData.set("id", member.id);
-    formData.set("gang_id", gangId);
-
-    startTransition(async () => {
-      const result = await deleteGangMember(formData);
-      if (result?.error) setError(result.error);
-    });
-  }
-
   return (
     <tr className="border-b border-gtf-border last:border-0">
-      <td className="px-4 py-3">
+      <td data-label="Nom" className="px-4 py-3">
         {editing ? (
           <input
             value={nom}
             onChange={(e) => setNom(e.target.value)}
-            className={`w-full ${inputClass}`}
+            className={`w-full ${fieldCompactClass}`}
           />
         ) : (
           member.nom
         )}
       </td>
-      <td className="px-4 py-3">
+      <td data-label="Rôle" className="px-4 py-3">
         {editing ? (
           <input
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            className={`w-full ${inputClass}`}
+            className={`w-full ${fieldCompactClass}`}
           />
         ) : (
           member.role || "—"
         )}
       </td>
-      <td className="px-4 py-3">
+      <td data-label="Statut" className="px-4 py-3">
         {editing ? (
           <select
             value={statut}
             onChange={(e) => setStatut(e.target.value as MembreStatut)}
-            className={inputClass}
+            className={fieldCompactClass}
           >
             {STATUTS.map((s) => (
               <option key={s.value} value={s.value}>
@@ -265,54 +263,59 @@ function MemberRow({
           <MemberStatutBadge statut={member.statut} />
         )}
       </td>
-      {!canWrite ? null : (
-      <td className="px-4 py-3">
-        <div className="flex justify-end gap-2">
-          {editing ? (
-            <>
-              <button
-                onClick={handleSave}
-                disabled={pending}
-                className="rounded bg-gtf-blue px-3 py-1 text-xs uppercase tracking-wider text-gtf-text hover:bg-gtf-blue-hover disabled:opacity-60"
-              >
-                Enregistrer
-              </button>
-              <button
-                onClick={() => {
-                  setEditing(false);
-                  setNom(member.nom);
-                  setRole(member.role);
-                  setStatut(member.statut);
-                }}
-                className="rounded border border-gtf-border px-3 py-1 text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
-              >
-                Annuler
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => setEditing(true)}
-                className="rounded border border-gtf-border px-3 py-1 text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
-              >
-                Modifier
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={pending}
-                className="rounded border border-gtf-red px-3 py-1 text-xs uppercase tracking-wider text-gtf-red hover:bg-gtf-red/10 disabled:opacity-60"
-              >
-                Supprimer
-              </button>
-            </>
+      {canWrite && (
+        <td className="px-4 py-3">
+          <div className="gtf-stack-actions flex flex-wrap justify-end gap-2">
+            {editing ? (
+              <>
+                <button
+                  onClick={handleSave}
+                  disabled={pending}
+                  className={btn("primary", "sm")}
+                >
+                  {pending && <Spinner className="h-3 w-3" />}
+                  Enregistrer
+                </button>
+                <button
+                  onClick={() => {
+                    setEditing(false);
+                    setNom(member.nom);
+                    setRole(member.role);
+                    setStatut(member.statut);
+                    setError(null);
+                  }}
+                  className={btn("secondary", "sm")}
+                >
+                  Annuler
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setEditing(true)}
+                  className={btn("secondary", "sm")}
+                >
+                  Modifier
+                </button>
+                <ActionButton
+                  action={deleteGangMember}
+                  fields={{ id: member.id, gang_id: gangId }}
+                  confirm={`Retirer "${member.nom}" de la liste des membres ?`}
+                  success="Membre retiré"
+                  variant="danger"
+                  size="sm"
+                >
+                  Supprimer
+                </ActionButton>
+              </>
+            )}
+          </div>
+          {error && (
+            <p role="alert" className="mt-1 text-right text-xs text-gtf-red">
+              {error}
+            </p>
           )}
-        </div>
-        {error && (
-          <p role="alert" className="mt-1 text-right text-xs text-gtf-red">
-            {error}
-          </p>
-        )}
-      </td>
+        </td>
       )}
     </tr>
   );

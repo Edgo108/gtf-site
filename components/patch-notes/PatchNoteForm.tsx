@@ -10,11 +10,10 @@ import {
   PATCH_NOTE_CATEGORIE_OPTIONS,
   type PatchNote,
 } from "@/lib/supabase/patch-notes-types";
+import { FormFooter } from "@/components/ui/FormFooter";
+import { useActionRunner } from "@/lib/ui/use-action-runner";
+import { fieldClass, labelClass } from "@/lib/ui/styles";
 
-const fieldClass =
-  "w-full rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none";
-const labelClass =
-  "mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted";
 
 export function PatchNoteForm({
   note,
@@ -25,6 +24,7 @@ export function PatchNoteForm({
   defaultDate: string;
 }) {
   const router = useRouter();
+  const run = useActionRunner();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -36,10 +36,11 @@ export function PatchNoteForm({
 
     startTransition(async () => {
       const action = note ? updatePatchNote : createPatchNote;
-      const result = await action(formData);
-      if (result?.error) {
-        setError(result.error);
-      }
+      const result = await run(() => action(formData), {
+        success: note ? "Entrée de patch note mise à jour" : "Entrée de patch note créée",
+        inline: true,
+      });
+      if (result?.error) setError(result.error);
     });
   }
 
@@ -106,28 +107,11 @@ export function PatchNoteForm({
         />
       </div>
 
-      {error && (
-        <p role="alert" className="text-xs text-gtf-red">
-          {error}
-        </p>
-      )}
-
-      <div className="flex gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded bg-gtf-blue px-5 py-2 text-xs font-medium uppercase tracking-widest text-gtf-text transition-colors hover:bg-gtf-blue-hover disabled:opacity-60"
-        >
-          {pending ? "..." : "Enregistrer"}
-        </button>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="rounded border border-gtf-border px-5 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
-        >
-          Annuler
-        </button>
-      </div>
-    </form>
+      <FormFooter
+        error={error}
+        pending={pending}
+        onCancel={() => router.back()}
+      />
+      </form>
   );
 }

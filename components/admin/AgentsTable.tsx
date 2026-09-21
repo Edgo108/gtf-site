@@ -8,8 +8,13 @@ import {
   deleteAgent,
   resetAgentPassword,
 } from "@/app/(app)/admin/agents/actions";
+import { ActionButton } from "@/components/ui/ActionButton";
+import { Spinner } from "@/components/ui/Spinner";
+import { AgentStatutBadge } from "@/components/admin/AgentStatutBadge";
 import { GRADES } from "@/lib/constants";
 import { UNITES, UNITE_LABELS } from "@/lib/permissions";
+import { useActionRunner } from "@/lib/ui/use-action-runner";
+import { btn, fieldClass, fieldCompactClass } from "@/lib/ui/styles";
 import type { Profile } from "@/lib/supabase/types";
 
 // Rang du grade : plus élevé = plus haut dans la liste (Commandant → Agent).
@@ -56,12 +61,12 @@ export function AgentsTable({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Rechercher un agent…"
-          className="w-full max-w-xs rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+          className={`${fieldClass} sm:max-w-xs`}
         />
       </div>
 
       <div className="overflow-x-auto rounded-md border border-gtf-border">
-        <table className="w-full text-left text-sm">
+        <table className="gtf-stack w-full text-left text-sm">
           <thead>
             <tr className="border-b border-gtf-border bg-gtf-panel-alt font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
               <th className="px-4 py-3">Pseudo</th>
@@ -107,9 +112,8 @@ function UniteCell({
   profile: Profile;
   editable: boolean;
 }) {
+  const run = useActionRunner();
   const [unite, setUnite] = useState(profile.unite);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
 
   if (!editable) {
@@ -119,31 +123,27 @@ function UniteCell({
   function handleChange(next: string) {
     const previous = unite;
     setUnite(next as Profile["unite"]);
-    setError(null);
-    setSaved(false);
 
     const formData = new FormData();
     formData.set("id", profile.id);
     formData.set("unite", next);
 
     startTransition(async () => {
-      const result = await updateAgentUnite(formData);
-      if (result.error) {
-        setError(result.error);
-        setUnite(previous);
-        return;
-      }
-      setSaved(true);
+      const result = await run(() => updateAgentUnite(formData), {
+        success: `Unité de ${profile.pseudo} : ${next}`,
+      });
+      // Échec (erreur affichée par le toast) : on rétablit l'ancienne valeur.
+      if (result?.error) setUnite(previous);
     });
   }
 
   return (
-    <div>
+    <div className="flex items-center gap-2">
       <select
         value={unite}
         disabled={pending}
         onChange={(e) => handleChange(e.target.value)}
-        className="rounded border border-gtf-border bg-gtf-panel px-2 py-1 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none disabled:opacity-60"
+        className={fieldCompactClass}
       >
         {UNITES.map((u) => (
           <option key={u} value={u} title={UNITE_LABELS[u]}>
@@ -151,14 +151,7 @@ function UniteCell({
           </option>
         ))}
       </select>
-      {saved && !error && (
-        <span className="ml-2 text-xs text-gtf-green">enregistré</span>
-      )}
-      {error && (
-        <p role="alert" className="mt-1 text-xs text-gtf-red">
-          {error}
-        </p>
-      )}
+      {pending && <Spinner className="h-3 w-3 text-gtf-blue-hover" />}
     </div>
   );
 }
@@ -174,6 +167,7 @@ function AgentRow({
   canManageAgents: boolean;
   canManageUnite: boolean;
 }) {
+  const run = useActionRunner();
   const [editing, setEditing] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [pseudo, setPseudo] = useState(profile.pseudo);
@@ -190,24 +184,15 @@ function AgentRow({
     formData.set("grade", grade);
 
     startTransition(async () => {
-      const result = await updateAgent(formData);
-      if (result.error) {
+      const result = await run(() => updateAgent(formData), {
+        success: "Agent mis à jour",
+        inline: true,
+      });
+      if (result?.error) {
         setError(result.error);
         return;
       }
       setEditing(false);
-    });
-  }
-
-  function handleToggleStatut() {
-    setError(null);
-    const formData = new FormData();
-    formData.set("id", profile.id);
-    formData.set("statut", profile.statut);
-
-    startTransition(async () => {
-      const result = await toggleStatut(formData);
-      if (result.error) setError(result.error);
     });
   }
 
@@ -224,8 +209,11 @@ function AgentRow({
     formData.set("password", newPassword);
 
     startTransition(async () => {
-      const result = await resetAgentPassword(formData);
-      if (result.error) {
+      const result = await run(() => resetAgentPassword(formData), {
+        success: `Mot de passe de ${profile.pseudo} réinitialisé`,
+        inline: true,
+      });
+      if (result?.error) {
         setError(result.error);
         return;
       }
@@ -234,43 +222,27 @@ function AgentRow({
     });
   }
 
-  function handleDelete() {
-    if (
-      !window.confirm(
-        `Supprimer définitivement le compte de "${profile.pseudo}" ? Cette action est irréversible.`,
-      )
-    ) {
-      return;
-    }
-    setError(null);
-    const formData = new FormData();
-    formData.set("id", profile.id);
-
-    startTransition(async () => {
-      const result = await deleteAgent(formData);
-      if (result.error) setError(result.error);
-    });
-  }
+  const isActif = profile.statut === "actif";
 
   return (
     <tr className="border-b border-gtf-border last:border-0">
-      <td className="px-4 py-3">
+      <td data-label="Pseudo" className="px-4 py-3">
         {editing ? (
           <input
             value={pseudo}
             onChange={(e) => setPseudo(e.target.value)}
-            className="w-full rounded border border-gtf-border bg-gtf-panel px-2 py-1 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+            className={`w-full ${fieldCompactClass}`}
           />
         ) : (
           profile.pseudo
         )}
       </td>
-      <td className="px-4 py-3">
+      <td data-label="Grade" className="px-4 py-3">
         {editing ? (
           <select
             value={grade}
             onChange={(e) => setGrade(e.target.value)}
-            className="rounded border border-gtf-border bg-gtf-panel px-2 py-1 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+            className={fieldCompactClass}
           >
             {GRADES.map((g) => (
               <option key={g} value={g}>
@@ -282,17 +254,11 @@ function AgentRow({
           profile.grade
         )}
       </td>
-      <td className="px-4 py-3">
+      <td data-label="Unité" className="px-4 py-3">
         <UniteCell profile={profile} editable={canManageUnite} />
       </td>
-      <td className="px-4 py-3">
-        <span
-          className={
-            profile.statut === "actif" ? "text-gtf-green" : "text-gtf-red"
-          }
-        >
-          {profile.statut}
-        </span>
+      <td data-label="Statut" className="px-4 py-3">
+        <AgentStatutBadge statut={profile.statut} />
       </td>
       {canManageAgents && (
         <td className="px-4 py-3">
@@ -304,13 +270,14 @@ function AgentRow({
                 placeholder="Nouveau mot de passe temporaire"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="rounded border border-gtf-border bg-gtf-panel px-2 py-1 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+                className={`${fieldCompactClass} w-full sm:w-auto`}
               />
               <button
                 onClick={handleResetPassword}
                 disabled={pending}
-                className="rounded bg-gtf-blue px-3 py-1 text-xs uppercase tracking-wider text-gtf-text hover:bg-gtf-blue-hover disabled:opacity-60"
+                className={btn("primary", "sm")}
               >
+                {pending && <Spinner className="h-3 w-3" />}
                 Valider
               </button>
               <button
@@ -319,20 +286,21 @@ function AgentRow({
                   setNewPassword("");
                   setError(null);
                 }}
-                className="rounded border border-gtf-border px-3 py-1 text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
+                className={btn("secondary", "sm")}
               >
                 Annuler
               </button>
             </div>
           ) : (
-            <div className="flex flex-wrap justify-end gap-2">
+            <div className="gtf-stack-actions flex flex-wrap justify-end gap-2">
               {editing ? (
                 <>
                   <button
                     onClick={handleSave}
                     disabled={pending}
-                    className="rounded bg-gtf-blue px-3 py-1 text-xs uppercase tracking-wider text-gtf-text hover:bg-gtf-blue-hover disabled:opacity-60"
+                    className={btn("primary", "sm")}
                   >
+                    {pending && <Spinner className="h-3 w-3" />}
                     Enregistrer
                   </button>
                   <button
@@ -340,8 +308,9 @@ function AgentRow({
                       setEditing(false);
                       setPseudo(profile.pseudo);
                       setGrade(profile.grade);
+                      setError(null);
                     }}
-                    className="rounded border border-gtf-border px-3 py-1 text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
+                    className={btn("secondary", "sm")}
                   >
                     Annuler
                   </button>
@@ -350,36 +319,50 @@ function AgentRow({
                 <>
                   <button
                     onClick={() => setEditing(true)}
-                    className="rounded border border-gtf-border px-3 py-1 text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
+                    className={btn("secondary", "sm")}
                   >
                     Modifier
                   </button>
                   <button
                     onClick={() => setResetting(true)}
-                    className="rounded border border-gtf-border px-3 py-1 text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
+                    className={btn("secondary", "sm")}
                   >
                     Réinitialiser mdp
                   </button>
-                  <button
-                    onClick={handleToggleStatut}
-                    disabled={pending || isSelf}
-                    className="rounded border border-gtf-amber px-3 py-1 text-xs uppercase tracking-wider text-gtf-amber hover:bg-gtf-amber/10 disabled:opacity-40"
+                  <ActionButton
+                    action={toggleStatut}
+                    fields={{ id: profile.id, statut: profile.statut }}
+                    success={
+                      isActif
+                        ? `Compte de ${profile.pseudo} suspendu`
+                        : `Compte de ${profile.pseudo} réactivé`
+                    }
+                    variant="warning"
+                    size="sm"
+                    disabled={isSelf}
                   >
-                    {profile.statut === "actif" ? "Suspendre" : "Réactiver"}
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    disabled={pending || isSelf}
-                    className="rounded border border-gtf-red px-3 py-1 text-xs uppercase tracking-wider text-gtf-red hover:bg-gtf-red/10 disabled:opacity-40"
+                    {isActif ? "Suspendre" : "Réactiver"}
+                  </ActionButton>
+                  <ActionButton
+                    action={deleteAgent}
+                    fields={{ id: profile.id }}
+                    confirm={`Supprimer définitivement le compte de "${profile.pseudo}" ? Cette action est irréversible.`}
+                    success={`Compte de ${profile.pseudo} supprimé`}
+                    variant="danger"
+                    size="sm"
+                    disabled={isSelf}
                   >
                     Supprimer
-                  </button>
+                  </ActionButton>
                 </>
               )}
             </div>
           )}
           {error && (
-            <p role="alert" className="mt-1 text-right text-xs text-gtf-red">
+            <p
+              role="alert"
+              className="mt-1 text-right text-xs text-gtf-red sm:text-right"
+            >
               {error}
             </p>
           )}

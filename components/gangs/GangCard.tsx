@@ -11,7 +11,7 @@ export function GangCard({ gang }: { gang: Gang }) {
       className="block rounded-md border border-l-4 border-gtf-border bg-gtf-panel p-4 transition-colors hover:border-gtf-blue"
     >
       <div className="flex items-start justify-between gap-2">
-        <h2 className="font-display text-base font-semibold uppercase tracking-wide text-gtf-text">
+        <h2 className="min-w-0 break-words font-display text-base font-semibold uppercase tracking-wide text-gtf-text">
           {gang.nom}
         </h2>
         <DangerBadge niveau={gang.niveau_menace} />

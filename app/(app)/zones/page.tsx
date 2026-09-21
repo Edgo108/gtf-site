@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { MapLoader } from "@/components/zones/MapLoader";
 import { uniteCanWrite } from "@/lib/permissions";
+import { btn } from "@/lib/ui/styles";
 
 export default async function ZonesPage() {
   const supabase = await createClient();
@@ -26,7 +27,7 @@ export default async function ZonesPage() {
         {profile?.role === "admin" && (
           <Link
             href="/admin/zones/corbeille"
-            className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
+            className={btn("secondary", "md")}
           >
             Corbeille
           </Link>

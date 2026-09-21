@@ -80,6 +80,22 @@ export default async function DashboardPage() {
       .returns<PatchNote[]>(),
   ]);
 
+  // Si une des requêtes échoue, mieux vaut l'écran d'erreur (avec
+  // « Réessayer ») que des compteurs à 0 et des panneaux vides qui
+  // laisseraient croire qu'il n'y a rien.
+  const failed = [
+    enCoursResult,
+    totalResult,
+    recentInvestigationsResult,
+    activeWantedResult,
+    announcementsResult,
+    readRowsResult,
+    recentPatchNotesResult,
+  ].some((result) => result.error);
+  if (failed) {
+    throw new Error("Chargement du tableau de bord impossible.");
+  }
+
   const enCoursCount = enCoursResult.count ?? 0;
   const totalCount = totalResult.count ?? 0;
   const recentInvestigations = recentInvestigationsResult.data ?? [];

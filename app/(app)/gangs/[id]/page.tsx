@@ -8,6 +8,7 @@ import { CategorieBadge } from "@/components/gangs/CategorieBadge";
 import { MembersList } from "@/components/gangs/MembersList";
 import { uniteCanWrite } from "@/lib/permissions";
 import type { Gang, GangMember } from "@/lib/supabase/gangs-types";
+import { btn } from "@/lib/ui/styles";
 
 export default async function GangDetailPage({
   params,
@@ -55,7 +56,7 @@ export default async function GangDetailPage({
             aria-hidden="true"
           />
           <div>
-            <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
+            <h1 className="break-words font-display text-2xl font-bold uppercase tracking-wide">
               {gang.nom}
             </h1>
             <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -68,10 +69,10 @@ export default async function GangDetailPage({
           </div>
         </div>
         {canWrite && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link
               href={`/gangs/${gang.id}/modifier`}
-              className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
+              className={btn("secondary", "md")}
             >
               Modifier
             </Link>

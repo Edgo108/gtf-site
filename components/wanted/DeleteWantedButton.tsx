@@ -1,40 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { deleteWantedNotice } from "@/app/(app)/mandats/actions";
+import { ActionButton } from "@/components/ui/ActionButton";
 
 export function DeleteWantedButton({ id }: { id: string }) {
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  function handleDelete() {
-    if (!window.confirm("Supprimer définitivement ce mandat de recherche ?")) {
-      return;
-    }
-    setError(null);
-    const formData = new FormData();
-    formData.set("id", id);
-
-    startTransition(async () => {
-      const result = await deleteWantedNotice(formData);
-      if (result?.error) setError(result.error);
-    });
-  }
-
   return (
-    <div>
-      <button
-        onClick={handleDelete}
-        disabled={pending}
-        className="rounded border border-gtf-red px-4 py-2 text-xs uppercase tracking-widest text-gtf-red hover:bg-gtf-red/10 disabled:opacity-60"
-      >
-        Supprimer
-      </button>
-      {error && (
-        <p role="alert" className="mt-1 text-xs text-gtf-red">
-          {error}
-        </p>
-      )}
-    </div>
+    <ActionButton
+      action={deleteWantedNotice}
+      fields={{ id }}
+      confirm="Supprimer définitivement ce mandat de recherche ?"
+      success="Mandat supprimé"
+      variant="danger"
+    >
+      Supprimer
+    </ActionButton>
   );
 }

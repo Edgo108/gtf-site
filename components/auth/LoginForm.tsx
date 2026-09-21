@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { pseudoToEmail } from "@/lib/auth/pseudo";
+import { NETWORK_ERROR_MESSAGE } from "@/lib/ui/use-action-runner";
 
 export function LoginForm() {
   const router = useRouter();
@@ -18,10 +19,17 @@ export function LoginForm() {
     setLoading(true);
 
     const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: pseudoToEmail(pseudo),
-      password,
-    });
+    let signInError: { message: string } | null;
+    try {
+      ({ error: signInError } = await supabase.auth.signInWithPassword({
+        email: pseudoToEmail(pseudo),
+        password,
+      }));
+    } catch {
+      setLoading(false);
+      setError(NETWORK_ERROR_MESSAGE);
+      return;
+    }
 
     setLoading(false);
 

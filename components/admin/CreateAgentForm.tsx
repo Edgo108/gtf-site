@@ -4,8 +4,12 @@ import { useRef, useState, useTransition } from "react";
 import { createAgent } from "@/app/(app)/admin/agents/actions";
 import { GRADES } from "@/lib/constants";
 import { UNITES, UNITE_LABELS } from "@/lib/permissions";
+import { Spinner } from "@/components/ui/Spinner";
+import { useActionRunner } from "@/lib/ui/use-action-runner";
+import { btn, inputBase, labelClass } from "@/lib/ui/styles";
 
 export function CreateAgentForm() {
+  const run = useActionRunner();
   const formRef = useRef<HTMLFormElement>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -14,8 +18,11 @@ export function CreateAgentForm() {
   function handleAction(formData: FormData) {
     setError(null);
     startTransition(async () => {
-      const result = await createAgent({}, formData);
-      if (result.error) {
+      const result = await run(() => createAgent({}, formData), {
+        success: "Agent créé",
+        inline: true,
+      });
+      if (result?.error) {
         setError(result.error);
         return;
       }
@@ -28,7 +35,7 @@ export function CreateAgentForm() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded bg-gtf-blue px-4 py-2 text-xs font-medium uppercase tracking-widest text-gtf-text transition-colors hover:bg-gtf-blue-hover"
+        className={btn("primary")}
       >
         Créer un agent
       </button>
@@ -41,10 +48,10 @@ export function CreateAgentForm() {
       action={handleAction}
       className="flex flex-wrap items-end gap-4 rounded-md border border-gtf-border bg-gtf-panel-alt p-4"
     >
-      <div>
+      <div className="w-full sm:w-auto">
         <label
           htmlFor="new-pseudo"
-          className="mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted"
+          className={labelClass}
         >
           Pseudo
         </label>
@@ -53,14 +60,14 @@ export function CreateAgentForm() {
           name="pseudo"
           type="text"
           required
-          className="rounded border border-gtf-border bg-gtf-panel px-3 py-1.5 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+          className={`${inputBase} w-full sm:w-auto`}
         />
       </div>
 
-      <div>
+      <div className="w-full sm:w-auto">
         <label
           htmlFor="new-password"
-          className="mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted"
+          className={labelClass}
         >
           Mot de passe temporaire
         </label>
@@ -70,14 +77,14 @@ export function CreateAgentForm() {
           type="text"
           required
           minLength={8}
-          className="rounded border border-gtf-border bg-gtf-panel px-3 py-1.5 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+          className={`${inputBase} w-full sm:w-auto`}
         />
       </div>
 
-      <div>
+      <div className="w-full sm:w-auto">
         <label
           htmlFor="new-grade"
-          className="mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted"
+          className={labelClass}
         >
           Grade
         </label>
@@ -86,7 +93,7 @@ export function CreateAgentForm() {
           name="grade"
           required
           defaultValue={GRADES[0]}
-          className="rounded border border-gtf-border bg-gtf-panel px-3 py-1.5 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+          className={`${inputBase} w-full sm:w-auto`}
         >
           {GRADES.map((grade) => (
             <option key={grade} value={grade}>
@@ -96,10 +103,10 @@ export function CreateAgentForm() {
         </select>
       </div>
 
-      <div>
+      <div className="w-full sm:w-auto">
         <label
           htmlFor="new-unite"
-          className="mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted"
+          className={labelClass}
         >
           Unité
         </label>
@@ -108,7 +115,7 @@ export function CreateAgentForm() {
           name="unite"
           required
           defaultValue="SASP"
-          className="rounded border border-gtf-border bg-gtf-panel px-3 py-1.5 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+          className={`${inputBase} w-full sm:w-auto`}
         >
           {UNITES.map((u) => (
             <option key={u} value={u}>
@@ -121,15 +128,18 @@ export function CreateAgentForm() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-gtf-blue px-4 py-2 text-xs font-medium uppercase tracking-widest text-gtf-text transition-colors hover:bg-gtf-blue-hover disabled:opacity-60"
+        aria-busy={pending}
+        className={btn("primary")}
       >
-        {pending ? "..." : "Créer"}
+        {pending && <Spinner className="h-3 w-3" />}
+        Créer
       </button>
 
       <button
         type="button"
         onClick={() => setOpen(false)}
-        className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
+        disabled={pending}
+        className={btn("secondary")}
       >
         Annuler
       </button>

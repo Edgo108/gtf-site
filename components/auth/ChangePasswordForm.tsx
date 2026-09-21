@@ -3,6 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/components/ui/ToastProvider";
+import { Spinner } from "@/components/ui/Spinner";
+import { btn, fieldClass, labelClass } from "@/lib/ui/styles";
+import { NETWORK_ERROR_MESSAGE } from "@/lib/ui/use-action-runner";
 
 export function ChangePasswordForm({
   mode,
@@ -12,6 +16,7 @@ export function ChangePasswordForm({
   userId: string;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,13 +40,21 @@ export function ChangePasswordForm({
     setLoading(true);
     const supabase = createClient();
 
-    const { error: updateError } = await supabase.auth.updateUser({
-      password,
-    });
+    let updateError: unknown = null;
+    try {
+      ({ error: updateError } = await supabase.auth.updateUser({ password }));
+    } catch {
+      setLoading(false);
+      setError(NETWORK_ERROR_MESSAGE);
+      toast.error(NETWORK_ERROR_MESSAGE);
+      return;
+    }
 
     if (updateError) {
       setLoading(false);
-      setError("Impossible de changer le mot de passe. Réessayez.");
+      const message = "Impossible de changer le mot de passe. Réessayez.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -54,27 +67,32 @@ export function ChangePasswordForm({
       setLoading(false);
 
       if (profileError) {
-        setError("Mot de passe changé, mais une erreur est survenue. Contactez un administrateur.");
+        const message =
+          "Mot de passe changé, mais une erreur est survenue. Contactez un administrateur.";
+        setError(message);
+        toast.error(message);
         return;
       }
 
+      toast.success("Mot de passe mis à jour");
       router.push("/dashboard");
       router.refresh();
       return;
     }
 
     setLoading(false);
+    toast.success("Mot de passe mis à jour");
     setSuccess(true);
     setPassword("");
     setConfirm("");
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-72 flex-col gap-4">
+    <form onSubmit={handleSubmit} className="flex w-full max-w-72 flex-col gap-4">
       <div>
         <label
           htmlFor="new-password"
-          className="mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted"
+          className={labelClass}
         >
           Nouveau mot de passe
         </label>
@@ -85,14 +103,14 @@ export function ChangePasswordForm({
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+          className={fieldClass}
         />
       </div>
 
       <div>
         <label
           htmlFor="confirm-password"
-          className="mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted"
+          className={labelClass}
         >
           Confirmer le mot de passe
         </label>
@@ -103,16 +121,17 @@ export function ChangePasswordForm({
           required
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          className="w-full rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+          className={fieldClass}
         />
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        className="mt-2 rounded bg-gtf-blue px-4 py-2 text-xs font-medium uppercase tracking-widest text-gtf-text transition-colors hover:bg-gtf-blue-hover disabled:opacity-60"
+        className={btn("primary", "md", "mt-2")}
       >
-        {loading ? "..." : "Valider"}
+        {loading && <Spinner className="h-3 w-3" />}
+        Valider
       </button>
 
       {error && (

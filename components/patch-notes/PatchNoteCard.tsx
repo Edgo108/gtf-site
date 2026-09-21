@@ -5,6 +5,7 @@ import {
   formatPatchDate,
   type PatchNote,
 } from "@/lib/supabase/patch-notes-types";
+import { btn } from "@/lib/ui/styles";
 
 export function PatchNoteCard({
   note,
@@ -37,7 +38,7 @@ export function PatchNoteCard({
         <div className="mt-4 flex flex-wrap gap-2 border-t border-gtf-border pt-3">
           <Link
             href={`/patch-notes/${note.id}/modifier`}
-            className="rounded border border-gtf-border px-3 py-1 text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
+            className={btn("secondary", "sm")}
           >
             Modifier
           </Link>

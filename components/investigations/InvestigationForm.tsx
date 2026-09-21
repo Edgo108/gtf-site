@@ -12,6 +12,9 @@ import { parseSuspectNames, type SuspectMatch } from "@/lib/investigations/suspe
 import type { Investigation } from "@/lib/supabase/investigations-types";
 import { NameSuggestField } from "@/components/ui/NameSuggestField";
 import { useNameSuggestions } from "@/lib/suggestions/use-name-suggestions";
+import { FormFooter } from "@/components/ui/FormFooter";
+import { useActionRunner } from "@/lib/ui/use-action-runner";
+import { fieldClass, labelClass } from "@/lib/ui/styles";
 
 const STATUTS: { value: Investigation["statut"]; label: string }[] = [
   { value: "en_cours", label: "En cours" },
@@ -19,10 +22,6 @@ const STATUTS: { value: Investigation["statut"]; label: string }[] = [
   { value: "archivee", label: "Archivée" },
 ];
 
-const fieldClass =
-  "w-full rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none";
-const labelClass =
-  "mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted";
 
 export function InvestigationForm({
   investigation,
@@ -30,6 +29,7 @@ export function InvestigationForm({
   investigation?: Investigation;
 }) {
   const router = useRouter();
+  const run = useActionRunner();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [suspectMatches, setSuspectMatches] = useState<SuspectMatch[]>([]);
@@ -46,10 +46,11 @@ export function InvestigationForm({
 
     startTransition(async () => {
       const action = investigation ? updateInvestigation : createInvestigation;
-      const result = await action(formData);
-      if (result?.error) {
-        setError(result.error);
-      }
+      const result = await run(() => action(formData), {
+        success: investigation ? "Enquête mise à jour" : "Enquête créée",
+        inline: true,
+      });
+      if (result?.error) setError(result.error);
     });
   }
 
@@ -64,8 +65,14 @@ export function InvestigationForm({
       return;
     }
 
-    const results = await checkSuspectMatches(names, investigation?.id);
-    setSuspectMatches(results);
+    // Vérification de confort (doublons de suspects) : si elle échoue
+    // (réseau, session), on ne bloque pas la saisie ni l'enregistrement.
+    try {
+      const results = await checkSuspectMatches(names, investigation?.id);
+      setSuspectMatches(results);
+    } catch {
+      setSuspectMatches([]);
+    }
   }
 
   function dismissMatch(name: string) {
@@ -79,7 +86,7 @@ export function InvestigationForm({
           <div
             key={match.name}
             role="alert"
-            className="w-80 rounded-md border border-gtf-amber bg-gtf-panel p-3 shadow-lg"
+            className="w-80 max-w-[calc(100vw-2rem)] rounded-md border border-gtf-amber bg-gtf-panel p-3 shadow-lg"
           >
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm text-gtf-text">
@@ -204,28 +211,11 @@ export function InvestigationForm({
         />
       </div>
 
-      {error && (
-        <p role="alert" className="text-xs text-gtf-red">
-          {error}
-        </p>
-      )}
-
-      <div className="flex gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded bg-gtf-blue px-5 py-2 text-xs font-medium uppercase tracking-widest text-gtf-text transition-colors hover:bg-gtf-blue-hover disabled:opacity-60"
-        >
-          {pending ? "..." : "Enregistrer"}
-        </button>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="rounded border border-gtf-border px-5 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
-        >
-          Annuler
-        </button>
-      </div>
+      <FormFooter
+        error={error}
+        pending={pending}
+        onCancel={() => router.back()}
+      />
       </form>
     </>
   );

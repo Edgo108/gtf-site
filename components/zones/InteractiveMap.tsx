@@ -39,6 +39,10 @@ import {
   type LabStatut,
 } from "@/lib/supabase/lab-markers-types";
 import type { Investigation } from "@/lib/supabase/investigations-types";
+import { Spinner } from "@/components/ui/Spinner";
+import { useToast } from "@/components/ui/ToastProvider";
+import { useActionRunner } from "@/lib/ui/use-action-runner";
+import { btn, fieldCompactClass } from "@/lib/ui/styles";
 
 type InvestigationOption = Pick<Investigation, "id" | "titre">;
 
@@ -65,11 +69,19 @@ function latLngToPoint(latlng: L.LatLng): ZonePoint {
 }
 
 function makeHandleIcon(): L.DivIcon {
+  // Au doigt, une poignée de 12 px est quasi impossible à saisir : sur un
+  // écran tactile la zone cliquable passe à 32 px (le point visible reste
+  // petit, centré dedans).
+  const coarse =
+    typeof window !== "undefined" &&
+    window.matchMedia("(pointer: coarse)").matches;
+  const size = coarse ? 32 : 12;
+  const dot = coarse ? 16 : 12;
   return L.divIcon({
     className: "",
-    html: '<div style="width:12px;height:12px;border-radius:9999px;background:#5B94D6;border:2px solid #0A0C0F;box-shadow:0 0 0 1px #5B94D6;"></div>',
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
+    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;"><div style="width:${dot}px;height:${dot}px;border-radius:9999px;background:#5B94D6;border:2px solid #0A0C0F;box-shadow:0 0 0 1px #5B94D6;box-sizing:border-box;"></div></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
@@ -243,6 +255,18 @@ export function InteractiveMap({
 
   const [mode, setMode] = useState<Mode>("view");
 
+  const run = useActionRunner();
+  const toast = useToast();
+  // État de chargement : la carte (image + Leaflet) et les données Supabase
+  // sont deux chargements indépendants ; l'overlay reste affiché tant que
+  // l'un des deux n'est pas prêt.
+  const [mapReady, setMapReady] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [dataError, setDataError] = useState(false);
+  const [mapImageError, setMapImageError] = useState(false);
+  const [layerLoading, setLayerLoading] = useState(false);
+  const pollFailedRef = useRef(false);
+
   // --- zones : dessin / édition ---
   const [drawingPoints, setDrawingPoints] = useState<ZonePoint[]>([]);
   const [drawGangId, setDrawGangId] = useState("");
@@ -297,61 +321,96 @@ export function InteractiveMap({
 
   // --- Chargement initial + rafraîchissement périodique ------------------
 
+  // Échec réseau/serveur du chargement ou du sondage : un seul toast tant
+  // que ça dure (le sondage réessaie tout seul toutes les 20 s), puis un
+  // toast de rétablissement.
+  function reportPollFailure() {
+    setDataError(true);
+    if (!pollFailedRef.current) {
+      pollFailedRef.current = true;
+      toast.error(
+        "Connexion perdue : la carte n'est plus mise à jour. Nouvelle tentative automatique…",
+      );
+    }
+  }
+
+  function reportPollSuccess() {
+    setDataError(false);
+    if (pollFailedRef.current) {
+      pollFailedRef.current = false;
+      toast.success("Connexion rétablie : la carte est à jour.");
+    }
+  }
+
   async function fetchMapData() {
-    const supabase = createClient();
-    const [
-      { data: gangsData },
-      { data: zonesData },
-      { data: labsData },
-      { data: investigationsData },
-    ] = await Promise.all([
-      supabase.from("gangs").select("*").returns<Gang[]>(),
-      supabase.from("sensitive_zones").select("*").returns<SensitiveZone[]>(),
-      supabase.from("lab_markers").select("*").returns<LabMarker[]>(),
-      supabase
-        .from("investigations")
-        .select("id, titre")
-        .order("titre", { ascending: true })
-        .returns<InvestigationOption[]>(),
-    ]);
-    setGangs(gangsData ?? []);
-    setZones(zonesData ?? []);
-    setLabMarkers(labsData ?? []);
-    setInvestigations(investigationsData ?? []);
+    try {
+      const supabase = createClient();
+      const [gangsRes, zonesRes, labsRes, investigationsRes] =
+        await Promise.all([
+          supabase.from("gangs").select("*").returns<Gang[]>(),
+          supabase.from("sensitive_zones").select("*").returns<SensitiveZone[]>(),
+          supabase.from("lab_markers").select("*").returns<LabMarker[]>(),
+          supabase
+            .from("investigations")
+            .select("id, titre")
+            .order("titre", { ascending: true })
+            .returns<InvestigationOption[]>(),
+        ]);
+
+      // Gangs / zones / labos sont indispensables : sans eux on garde les
+      // données précédentes plutôt que d'afficher une carte vide.
+      if (gangsRes.error || zonesRes.error || labsRes.error) {
+        reportPollFailure();
+        return;
+      }
+
+      setGangs(gangsRes.data ?? []);
+      setZones(zonesRes.data ?? []);
+      setLabMarkers(labsRes.data ?? []);
+      setInvestigations(investigationsRes.data ?? []);
+      setDataLoaded(true);
+      reportPollSuccess();
+    } catch {
+      reportPollFailure();
+    }
   }
 
   async function fetchLocks() {
-    const [zoneLocks, markerLocks] = await Promise.all([
-      getLocksWithPseudos(),
-      getLabLocksWithPseudos(),
-    ]);
-    // Les verrous expirés (>3 min) sont écartés ici (dans un callback, pas
-    // le rendu) : les Map ne contiennent ensuite que des verrous actifs.
-    const now = Date.now();
+    try {
+      const [zoneLocks, markerLocks] = await Promise.all([
+        getLocksWithPseudos(),
+        getLabLocksWithPseudos(),
+      ]);
+      // Les verrous expirés (>3 min) sont écartés ici (dans un callback, pas
+      // le rendu) : les Map ne contiennent ensuite que des verrous actifs.
+      const now = Date.now();
 
-    const zn = new Map<string, LockInfo>();
-    for (const l of zoneLocks) {
-      if (now - new Date(l.locked_at).getTime() < LOCK_DURATION_MS) {
-        zn.set(l.zone_id, {
-          locked_by: l.locked_by,
-          locked_at: l.locked_at,
-          pseudo: l.pseudo,
-        });
+      const zn = new Map<string, LockInfo>();
+      for (const l of zoneLocks) {
+        if (now - new Date(l.locked_at).getTime() < LOCK_DURATION_MS) {
+          zn.set(l.zone_id, {
+            locked_by: l.locked_by,
+            locked_at: l.locked_at,
+            pseudo: l.pseudo,
+          });
+        }
       }
-    }
-    setLocks(zn);
+      setLocks(zn);
 
-    const lb = new Map<string, LockInfo>();
-    for (const l of markerLocks) {
-      if (now - new Date(l.locked_at).getTime() < LOCK_DURATION_MS) {
-        lb.set(l.marker_id, {
-          locked_by: l.locked_by,
-          locked_at: l.locked_at,
-          pseudo: l.pseudo,
-        });
+      const lb = new Map<string, LockInfo>();
+      for (const l of markerLocks) {
+        if (now - new Date(l.locked_at).getTime() < LOCK_DURATION_MS) {
+          lb.set(l.marker_id, {
+            locked_by: l.locked_by,
+            locked_at: l.locked_at,
+            pseudo: l.pseudo,
+          });
+        }
       }
+      setLabLocks(lb);
+    } catch {
+      reportPollFailure();
     }
-    setLabLocks(lb);
   }
 
   useEffect(() => {
@@ -365,6 +424,9 @@ export function InteractiveMap({
       fetchLocks();
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
+    // Exécuté une seule fois : `toast` (utilisé par les fonctions de
+    // sondage) est stable, inutile de relancer le sondage à chaque rendu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // --- Initialisation de la carte Leaflet ---------------------------------
@@ -374,6 +436,9 @@ export function InteractiveMap({
     let cancelled = false;
 
     const img = new Image();
+    img.onerror = () => {
+      if (!cancelled) setMapImageError(true);
+    };
     img.onload = () => {
       if (cancelled) return;
 
@@ -412,6 +477,11 @@ export function InteractiveMap({
 
         const overlay = L.imageOverlay(MAP_LAYERS[0].url, bounds).addTo(map);
         imageOverlayRef.current = overlay;
+        overlay.on("load", () => setLayerLoading(false));
+        overlay.on("error", () => {
+          setLayerLoading(false);
+          toast.error("Impossible de charger ce fond de carte. Réessayez.");
+        });
 
         zonesLayerRef.current = L.layerGroup().addTo(map);
         drawLayerRef.current = L.layerGroup().addTo(map);
@@ -432,6 +502,7 @@ export function InteractiveMap({
         map.on("zoomend", syncLabScale);
 
         mapRef.current = map;
+        setMapReady(true);
       });
     };
     img.src = MAP_LAYERS[0].url;
@@ -441,6 +512,8 @@ export function InteractiveMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
+    // Initialisation unique de Leaflet ; `toast` est stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // --- Changement de version de carte (conserve zoom/position) -----------
@@ -703,7 +776,10 @@ export function InteractiveMap({
     formData.set("type_zone", drawType);
     formData.set("points", JSON.stringify(drawingPoints));
 
-    const result = await createZone(formData);
+    const result = await run(() => createZone(formData), {
+      success: "Zone créée",
+      inline: true,
+    });
     setDrawPending(false);
 
     if (result.error) {
@@ -722,7 +798,9 @@ export function InteractiveMap({
     setModalError(null);
     const formData = new FormData();
     formData.set("zone_id", zone.id);
-    const result = await acquireLock(formData);
+    const result = await run(() => acquireLock(formData), {
+      inline: true,
+    });
 
     if (result.error) {
       setModalError(result.error);
@@ -743,7 +821,7 @@ export function InteractiveMap({
     if (editingZoneId) {
       const formData = new FormData();
       formData.set("zone_id", editingZoneId);
-      await releaseLock(formData);
+      await run(() => releaseLock(formData), { inline: true });
     }
     setEditingZoneId(null);
     setEditingPoints([]);
@@ -771,7 +849,10 @@ export function InteractiveMap({
     formData.set("type_zone", editType);
     formData.set("points", JSON.stringify(editingPoints));
 
-    const result = await updateZone(formData);
+    const result = await run(() => updateZone(formData), {
+      success: "Zone mise à jour",
+      inline: true,
+    });
     setEditPending(false);
 
     if (result.error) {
@@ -796,7 +877,10 @@ export function InteractiveMap({
     }
     const formData = new FormData();
     formData.set("id", zoneId);
-    const result = await deleteZone(formData);
+    const result = await run(() => deleteZone(formData), {
+      success: "Zone déplacée vers la corbeille",
+      inline: true,
+    });
 
     if (result.error) {
       setModalError(result.error);
@@ -858,7 +942,10 @@ export function InteractiveMap({
     );
     formData.set("position", JSON.stringify(labPlacePos));
 
-    const result = await createLabMarker(formData);
+    const result = await run(() => createLabMarker(formData), {
+      success: "Marqueur laboratoire créé",
+      inline: true,
+    });
     setLabPlacePending(false);
 
     if (result.error) {
@@ -877,7 +964,9 @@ export function InteractiveMap({
     setLabModalError(null);
     const formData = new FormData();
     formData.set("marker_id", marker.id);
-    const result = await acquireLabLock(formData);
+    const result = await run(() => acquireLabLock(formData), {
+      inline: true,
+    });
 
     if (result.error) {
       setLabModalError(result.error);
@@ -902,7 +991,7 @@ export function InteractiveMap({
     if (editingLabId) {
       const formData = new FormData();
       formData.set("marker_id", editingLabId);
-      await releaseLabLock(formData);
+      await run(() => releaseLabLock(formData), { inline: true });
     }
     setEditingLabId(null);
     setLabEditPos(null);
@@ -945,7 +1034,10 @@ export function InteractiveMap({
     );
     formData.set("position", JSON.stringify(labEditPos));
 
-    const result = await updateLabMarker(formData);
+    const result = await run(() => updateLabMarker(formData), {
+      success: "Marqueur laboratoire mis à jour",
+      inline: true,
+    });
     setLabEditPending(false);
 
     if (result.error) {
@@ -970,7 +1062,10 @@ export function InteractiveMap({
     }
     const formData = new FormData();
     formData.set("id", markerId);
-    const result = await deleteLabMarker(formData);
+    const result = await run(() => deleteLabMarker(formData), {
+      success: "Marqueur laboratoire déplacé vers la corbeille",
+      inline: true,
+    });
 
     if (result.error) {
       setLabModalError(result.error);
@@ -1010,23 +1105,56 @@ export function InteractiveMap({
       ? { pseudo: selectedLabLock.pseudo }
       : null;
 
-  const panelSelectClass =
-    "w-full rounded border border-gtf-border bg-gtf-panel-alt px-2 py-1.5 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none";
+  const panelSelectClass = `w-full ${fieldCompactClass}`;
   const panelLabelClass =
     "mb-1 block font-mono text-[10px] uppercase tracking-wider text-gtf-text-muted";
 
   const someFilterHidden = Object.values(filters).some((v) => !v);
 
   return (
-    <div className="relative h-[75vh] w-full overflow-hidden rounded-md border border-gtf-border">
+    <div className="relative h-[75dvh] min-h-[28rem] w-full overflow-hidden rounded-md border border-gtf-border">
       <div ref={containerRef} className="h-full w-full bg-[#0A0C0F]" />
 
+      {(!mapReady || !dataLoaded || mapImageError) && (
+        <div
+          role={mapImageError ? "alert" : "status"}
+          className="absolute inset-0 z-[600] flex flex-col items-center justify-center gap-3 bg-gtf-bg/95 p-4 text-center text-sm text-gtf-text-muted"
+        >
+          {mapImageError ? (
+            <>
+              <p className="text-gtf-red">
+                Impossible de charger le fond de carte.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className={btn("primary")}
+              >
+                Recharger la page
+              </button>
+            </>
+          ) : (
+            <>
+              <Spinner className="h-6 w-6 text-gtf-blue-hover" />
+              <p>
+                {dataError
+                  ? "Chargement des données impossible pour le moment. Nouvelle tentative automatique…"
+                  : "Chargement de la carte…"}
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Haut à droite : fond de carte + filtres d'affichage */}
-      <div className="absolute right-3 top-3 z-[500] flex w-48 flex-col gap-2">
+      <div className="absolute right-3 top-3 z-[500] flex w-40 flex-col gap-2 sm:w-48">
         <select
           value={layer}
-          onChange={(e) => setLayer(e.target.value as MapLayerKey)}
-          className="rounded border border-gtf-border bg-gtf-panel/95 px-3 py-1.5 font-mono text-xs uppercase tracking-wider text-gtf-text shadow-lg focus:border-gtf-blue focus:outline-none"
+          onChange={(e) => {
+            setLayerLoading(true);
+            setLayer(e.target.value as MapLayerKey);
+          }}
+          className={`${fieldCompactClass} bg-gtf-panel/95 px-3 font-mono text-xs uppercase tracking-wider shadow-lg`}
         >
           {MAP_LAYERS.map((m) => (
             <option key={m.value} value={m.value}>
@@ -1034,6 +1162,12 @@ export function InteractiveMap({
             </option>
           ))}
         </select>
+        {layerLoading && (
+          <p className="flex items-center gap-2 rounded border border-gtf-border bg-gtf-panel/95 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-gtf-text-muted shadow-lg">
+            <Spinner className="h-3 w-3 text-gtf-blue-hover" />
+            Chargement du fond…
+          </p>
+        )}
 
         <div className="rounded-md border border-gtf-border bg-gtf-panel/95 shadow-lg">
           <button
@@ -1052,7 +1186,7 @@ export function InteractiveMap({
           </button>
 
           {filtersOpen && (
-            <div className="border-t border-gtf-border p-3">
+            <div className="max-h-[45dvh] overflow-y-auto border-t border-gtf-border p-3">
               <p className={panelLabelClass}>Zones</p>
               <FilterCheckbox
                 label="Vente"
@@ -1102,7 +1236,7 @@ export function InteractiveMap({
               {someFilterHidden && (
                 <button
                   onClick={() => setFilters(DEFAULT_FILTERS)}
-                  className="mt-3 w-full rounded border border-gtf-border px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
+                  className={btn("secondary", "sm", "mt-3 w-full")}
                 >
                   Tout afficher
                 </button>
@@ -1113,18 +1247,18 @@ export function InteractiveMap({
       </div>
 
       {/* Panneau d'action principal */}
-      <div className="absolute left-3 top-3 z-[500]">
+      <div className="absolute inset-x-3 bottom-3 z-[500] sm:inset-x-auto sm:bottom-auto sm:left-3 sm:top-3">
         {mode === "view" && canWrite && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-row gap-2 sm:flex-col">
             <button
               onClick={startDrawing}
-              className="rounded bg-gtf-blue px-4 py-2 font-mono text-xs uppercase tracking-widest text-gtf-text shadow-lg hover:bg-gtf-blue-hover"
+              className={btn("primary", "md", "flex-1 font-mono shadow-lg sm:flex-none")}
             >
               Ajouter une zone
             </button>
             <button
               onClick={startPlacingLab}
-              className="rounded border border-gtf-border bg-gtf-panel/95 px-4 py-2 font-mono text-xs uppercase tracking-widest text-gtf-text shadow-lg hover:border-gtf-blue"
+              className={btn("secondary", "md", "flex-1 bg-gtf-panel/95 font-mono shadow-lg sm:flex-none")}
             >
               Ajouter un labo
             </button>
@@ -1132,7 +1266,7 @@ export function InteractiveMap({
         )}
 
         {mode === "drawing" && (
-          <div className="w-72 rounded-md border border-gtf-border bg-gtf-panel/95 p-3 shadow-lg">
+          <div className="max-h-[55dvh] w-full overflow-y-auto rounded-md border border-gtf-border bg-gtf-panel/95 p-3 shadow-lg sm:max-h-[calc(75dvh-1.5rem)] sm:w-72">
             <p className="font-display text-xs font-semibold uppercase tracking-wide text-gtf-text">
               Nouvelle zone
             </p>
@@ -1170,20 +1304,20 @@ export function InteractiveMap({
               <button
                 onClick={validateDrawing}
                 disabled={drawPending}
-                className="rounded bg-gtf-blue px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-text hover:bg-gtf-blue-hover disabled:opacity-60"
+                className={btn("primary", "sm")}
               >
                 {drawPending ? "..." : "Valider la zone"}
               </button>
               <button
                 onClick={undoLastPoint}
                 disabled={drawingPoints.length === 0}
-                className="rounded border border-gtf-border px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text disabled:opacity-40"
+                className={btn("secondary", "sm")}
               >
                 Annuler le dernier point
               </button>
               <button
                 onClick={cancelDrawing}
-                className="rounded border border-gtf-red px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-red hover:bg-gtf-red/10"
+                className={btn("danger", "sm")}
               >
                 Annuler
               </button>
@@ -1197,7 +1331,7 @@ export function InteractiveMap({
         )}
 
         {mode === "editing" && (
-          <div className="w-72 rounded-md border border-gtf-border bg-gtf-panel/95 p-3 shadow-lg">
+          <div className="max-h-[55dvh] w-full overflow-y-auto rounded-md border border-gtf-border bg-gtf-panel/95 p-3 shadow-lg sm:max-h-[calc(75dvh-1.5rem)] sm:w-72">
             <p className="font-display text-xs font-semibold uppercase tracking-wide text-gtf-text">
               Modification de la zone
             </p>
@@ -1233,13 +1367,13 @@ export function InteractiveMap({
               <button
                 onClick={saveEditing}
                 disabled={editPending}
-                className="rounded bg-gtf-blue px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-text hover:bg-gtf-blue-hover disabled:opacity-60"
+                className={btn("primary", "sm")}
               >
                 {editPending ? "..." : "Enregistrer"}
               </button>
               <button
                 onClick={cancelEditing}
-                className="rounded border border-gtf-border px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
+                className={btn("secondary", "sm")}
               >
                 Annuler
               </button>
@@ -1253,7 +1387,7 @@ export function InteractiveMap({
         )}
 
         {mode === "lab-placing" && (
-          <div className="w-72 rounded-md border border-gtf-border bg-gtf-panel/95 p-3 shadow-lg">
+          <div className="max-h-[55dvh] w-full overflow-y-auto rounded-md border border-gtf-border bg-gtf-panel/95 p-3 shadow-lg sm:max-h-[calc(75dvh-1.5rem)] sm:w-72">
             <p className="font-display text-xs font-semibold uppercase tracking-wide text-gtf-text">
               Nouveau laboratoire
             </p>
@@ -1332,13 +1466,13 @@ export function InteractiveMap({
               <button
                 onClick={validatePlacingLab}
                 disabled={labPlacePending}
-                className="rounded bg-gtf-blue px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-text hover:bg-gtf-blue-hover disabled:opacity-60"
+                className={btn("primary", "sm")}
               >
                 {labPlacePending ? "..." : "Valider le labo"}
               </button>
               <button
                 onClick={cancelPlacingLab}
-                className="rounded border border-gtf-red px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-red hover:bg-gtf-red/10"
+                className={btn("danger", "sm")}
               >
                 Annuler
               </button>
@@ -1352,7 +1486,7 @@ export function InteractiveMap({
         )}
 
         {mode === "lab-editing" && (
-          <div className="w-72 rounded-md border border-gtf-border bg-gtf-panel/95 p-3 shadow-lg">
+          <div className="max-h-[55dvh] w-full overflow-y-auto rounded-md border border-gtf-border bg-gtf-panel/95 p-3 shadow-lg sm:max-h-[calc(75dvh-1.5rem)] sm:w-72">
             <p className="font-display text-xs font-semibold uppercase tracking-wide text-gtf-text">
               Modification du laboratoire
             </p>
@@ -1425,13 +1559,13 @@ export function InteractiveMap({
               <button
                 onClick={saveEditingLab}
                 disabled={labEditPending}
-                className="rounded bg-gtf-blue px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-text hover:bg-gtf-blue-hover disabled:opacity-60"
+                className={btn("primary", "sm")}
               >
                 {labEditPending ? "..." : "Enregistrer"}
               </button>
               <button
                 onClick={cancelEditingLab}
-                className="rounded border border-gtf-border px-3 py-1.5 text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
+                className={btn("secondary", "sm")}
               >
                 Annuler
               </button>

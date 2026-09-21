@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { inputBase } from "@/lib/ui/styles";
 
 const STATUTS = [
   { value: "", label: "Tous les statuts" },
@@ -15,8 +16,7 @@ const NIVEAUX = [
   { value: "eleve", label: "Élevé" },
 ];
 
-const selectClass =
-  "rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none";
+const selectClass = inputBase;
 
 export function FilterBar() {
   const router = useRouter();

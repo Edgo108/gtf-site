@@ -10,6 +10,7 @@ import { DeleteWantedButton } from "@/components/wanted/DeleteWantedButton";
 import { normalizeName, parseSuspectNames } from "@/lib/investigations/suspects";
 import { uniteCanWrite } from "@/lib/permissions";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
+import { btn } from "@/lib/ui/styles";
 
 export default async function MandatDetailPage({
   params,
@@ -72,11 +73,11 @@ export default async function MandatDetailPage({
           />
         </div>
 
-        <div className="flex-1">
-          <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
+        <div className="min-w-[14rem] flex-1">
+          <h1 className="break-words font-display text-2xl font-bold uppercase tracking-wide">
             {notice.nom_suspect}
           </h1>
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <DangerBadge niveau={notice.niveau_dangerosite} />
             <StatutBadge statut={notice.statut} />
           </div>
@@ -99,7 +100,7 @@ export default async function MandatDetailPage({
             <div className="mt-4 flex flex-wrap gap-2">
               <Link
                 href={`/mandats/${notice.id}/modifier`}
-                className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
+                className={btn("secondary", "md")}
               >
                 Modifier
               </Link>

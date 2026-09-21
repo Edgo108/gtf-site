@@ -13,7 +13,7 @@ export function InvestigationCard({
       className="block rounded-md border border-gtf-border bg-gtf-panel p-4 transition-colors hover:border-gtf-blue"
     >
       <div className="flex items-start justify-between gap-2">
-        <h2 className="font-display text-base font-semibold uppercase tracking-wide text-gtf-text">
+        <h2 className="min-w-0 break-words font-display text-base font-semibold uppercase tracking-wide text-gtf-text">
           {investigation.titre}
         </h2>
         <StatutBadge statut={investigation.statut} />

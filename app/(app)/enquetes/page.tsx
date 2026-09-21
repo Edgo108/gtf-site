@@ -5,6 +5,7 @@ import { InvestigationCard } from "@/components/investigations/InvestigationCard
 import { SearchFilterBar } from "@/components/investigations/SearchFilterBar";
 import { uniteCanWrite } from "@/lib/permissions";
 import type { Investigation } from "@/lib/supabase/investigations-types";
+import { btn } from "@/lib/ui/styles";
 
 export default async function EnquetesPage({
   searchParams,
@@ -42,7 +43,12 @@ export default async function EnquetesPage({
     );
   }
 
-  const { data: investigations } = await query.returns<Investigation[]>();
+  const { data: investigations, error } = await query.returns<
+    Investigation[]
+  >();
+  if (error && !sanitizedQ) {
+    throw new Error("Chargement des enquêtes impossible.");
+  }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -50,11 +56,11 @@ export default async function EnquetesPage({
         <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
           Enquêtes
         </h1>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {profile?.role === "admin" && (
             <Link
               href="/admin/enquetes/corbeille"
-              className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
+              className={btn("secondary", "md")}
             >
               Corbeille
             </Link>
@@ -62,7 +68,7 @@ export default async function EnquetesPage({
           {canWrite && (
             <Link
               href="/enquetes/nouvelle"
-              className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
+              className={btn("primary", "md")}
             >
               Nouvelle enquête
             </Link>

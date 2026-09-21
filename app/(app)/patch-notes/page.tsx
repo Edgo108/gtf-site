@@ -7,6 +7,7 @@ import {
   isPatchNoteCategorie,
   type PatchNote,
 } from "@/lib/supabase/patch-notes-types";
+import { btn } from "@/lib/ui/styles";
 
 export default async function PatchNotesPage({
   searchParams,
@@ -38,7 +39,10 @@ export default async function PatchNotesPage({
     query = query.eq("categorie", categorie);
   }
 
-  const { data: notes } = await query.returns<PatchNote[]>();
+  const { data: notes, error } = await query.returns<PatchNote[]>();
+  if (error) {
+    throw new Error("Chargement des patch notes impossible.");
+  }
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -49,7 +53,7 @@ export default async function PatchNotesPage({
         {isAdmin && (
           <Link
             href="/patch-notes/nouvelle"
-            className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
+            className={btn("primary", "md")}
           >
             Nouvelle entrée
           </Link>

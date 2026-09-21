@@ -7,6 +7,9 @@ import {
   GANG_CATEGORIE_OPTIONS,
   type Gang,
 } from "@/lib/supabase/gangs-types";
+import { FormFooter } from "@/components/ui/FormFooter";
+import { useActionRunner } from "@/lib/ui/use-action-runner";
+import { fieldClass, labelClass } from "@/lib/ui/styles";
 
 const NIVEAUX = [
   { value: "faible", label: "Faible" },
@@ -17,13 +20,10 @@ const NIVEAUX = [
 const DEFAULT_COLOR = "#3E6FA6";
 const HEX_COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
 
-const fieldClass =
-  "w-full rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none";
-const labelClass =
-  "mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted";
 
 export function GangForm({ gang }: { gang?: Gang }) {
   const router = useRouter();
+  const run = useActionRunner();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [couleur, setCouleur] = useState(gang?.couleur ?? DEFAULT_COLOR);
@@ -40,10 +40,11 @@ export function GangForm({ gang }: { gang?: Gang }) {
 
     startTransition(async () => {
       const action = gang ? updateGang : createGang;
-      const result = await action(formData);
-      if (result?.error) {
-        setError(result.error);
-      }
+      const result = await run(() => action(formData), {
+        success: gang ? "Fiche B.D.D mise à jour" : "Fiche B.D.D créée",
+        inline: true,
+      });
+      if (result?.error) setError(result.error);
     });
   }
 
@@ -163,28 +164,11 @@ export function GangForm({ gang }: { gang?: Gang }) {
         />
       </div>
 
-      {error && (
-        <p role="alert" className="text-xs text-gtf-red">
-          {error}
-        </p>
-      )}
-
-      <div className="flex gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded bg-gtf-blue px-5 py-2 text-xs font-medium uppercase tracking-widest text-gtf-text transition-colors hover:bg-gtf-blue-hover disabled:opacity-60"
-        >
-          {pending ? "..." : "Enregistrer"}
-        </button>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="rounded border border-gtf-border px-5 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
-        >
-          Annuler
-        </button>
-      </div>
-    </form>
+      <FormFooter
+        error={error}
+        pending={pending}
+        onCancel={() => router.back()}
+      />
+      </form>
   );
 }

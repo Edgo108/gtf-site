@@ -9,8 +9,13 @@ import { NameSuggestField } from "@/components/ui/NameSuggestField";
 import { useNameSuggestions } from "@/lib/suggestions/use-name-suggestions";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
 import type { Gang, GangMember } from "@/lib/supabase/gangs-types";
+import { FormFooter } from "@/components/ui/FormFooter";
+import { useActionRunner } from "@/lib/ui/use-action-runner";
+import { useToast } from "@/components/ui/ToastProvider";
+import { fieldClass, labelClass } from "@/lib/ui/styles";
 
 const AUCUNE_ORGANISATION = "Aucune organisation identifiée";
+const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 Mo, comme uploadWantedPhoto
 
 type OrganisationEntry = { nomNormalized: string; orgNom: string };
 
@@ -25,13 +30,11 @@ const STATUTS = [
   { value: "capture", label: "Capturé" },
 ];
 
-const fieldClass =
-  "w-full rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none";
-const labelClass =
-  "mb-1 block font-mono text-xs uppercase tracking-wider text-gtf-text-muted";
 
 export function WantedForm({ notice }: { notice?: WantedNotice }) {
   const router = useRouter();
+  const run = useActionRunner();
+  const toast = useToast();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [preview, setPreview] = useState<string | null>(
@@ -81,6 +84,13 @@ export function WantedForm({ notice }: { notice?: WantedNotice }) {
 
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    // Même limite que côté serveur (5 Mo) : on prévient tout de suite
+    // plutôt que d'échouer après un long envoi.
+    if (file && file.size > MAX_PHOTO_SIZE) {
+      toast.error("L'image dépasse la taille maximale (5 Mo).");
+      event.target.value = "";
+      return;
+    }
     if (file) {
       setPreview(URL.createObjectURL(file));
     }
@@ -94,10 +104,11 @@ export function WantedForm({ notice }: { notice?: WantedNotice }) {
 
     startTransition(async () => {
       const action = notice ? updateWantedNotice : createWantedNotice;
-      const result = await action(formData);
-      if (result?.error) {
-        setError(result.error);
-      }
+      const result = await run(() => action(formData), {
+        success: notice ? "Mandat de recherche mis à jour" : "Mandat de recherche créé",
+        inline: true,
+      });
+      if (result?.error) setError(result.error);
     });
   }
 
@@ -208,28 +219,11 @@ export function WantedForm({ notice }: { notice?: WantedNotice }) {
         />
       </div>
 
-      {error && (
-        <p role="alert" className="text-xs text-gtf-red">
-          {error}
-        </p>
-      )}
-
-      <div className="flex gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded bg-gtf-blue px-5 py-2 text-xs font-medium uppercase tracking-widest text-gtf-text transition-colors hover:bg-gtf-blue-hover disabled:opacity-60"
-        >
-          {pending ? "..." : "Enregistrer"}
-        </button>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="rounded border border-gtf-border px-5 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
-        >
-          Annuler
-        </button>
-      </div>
-    </form>
+      <FormFooter
+        error={error}
+        pending={pending}
+        onCancel={() => router.back()}
+      />
+      </form>
   );
 }

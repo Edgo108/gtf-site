@@ -14,6 +14,7 @@ import type {
   InvestigationHistoryEntry,
 } from "@/lib/supabase/investigations-types";
 import type { LabMarker } from "@/lib/supabase/lab-markers-types";
+import { btn } from "@/lib/ui/styles";
 
 export default async function EnqueteDetailPage({
   params,
@@ -72,18 +73,18 @@ export default async function EnqueteDetailPage({
     <div className="mx-auto max-w-3xl">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
+          <h1 className="break-words font-display text-2xl font-bold uppercase tracking-wide">
             {investigation.titre}
           </h1>
           <div className="mt-2">
             <StatutBadge statut={investigation.statut} />
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {canWrite && (
             <Link
               href={`/enquetes/${investigation.id}/modifier`}
-              className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
+              className={btn("secondary", "md")}
             >
               Modifier
             </Link>

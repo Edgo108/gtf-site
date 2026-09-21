@@ -11,6 +11,8 @@ import type {
   LabMarker,
   LabMarkerHistoryEntry,
 } from "@/lib/supabase/lab-markers-types";
+import { BADGE_TONES, badgeBase, btn } from "@/lib/ui/styles";
+import { Spinner } from "@/components/ui/Spinner";
 
 export function LabMarkerDetailModal({
   marker,
@@ -34,6 +36,7 @@ export function LabMarkerDetailModal({
   canWrite: boolean;
 }) {
   const [history, setHistory] = useState<LabMarkerHistoryEntry[] | null>(null);
+  const [historyError, setHistoryError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,8 +48,10 @@ export function LabMarkerDetailModal({
       .eq("marker_id", marker.id)
       .order("created_at", { ascending: false })
       .returns<LabMarkerHistoryEntry[]>()
-      .then(({ data }) => {
-        if (!cancelled) setHistory(data ?? []);
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) setHistoryError(true);
+        setHistory(data ?? []);
       });
 
     return () => {
@@ -61,7 +66,7 @@ export function LabMarkerDetailModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-md border border-gtf-border bg-gtf-panel p-5"
+        className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-md border border-gtf-border bg-gtf-panel p-5"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -76,7 +81,7 @@ export function LabMarkerDetailModal({
           <button
             onClick={onClose}
             aria-label="Fermer"
-            className="shrink-0 text-gtf-text-muted hover:text-gtf-text"
+            className="-mr-2 -mt-1 shrink-0 px-2 py-1 text-2xl leading-none text-gtf-text-muted transition-colors hover:text-gtf-text"
           >
             ×
           </button>
@@ -133,13 +138,13 @@ export function LabMarkerDetailModal({
         <div className="mt-4 flex flex-wrap gap-2">
           {canWrite &&
             (lockedByOther ? (
-              <span className="rounded border border-gtf-amber bg-gtf-amber/10 px-3 py-2 text-xs uppercase tracking-widest text-gtf-amber">
+              <span className={`${badgeBase} ${BADGE_TONES.amber}`}>
                 Verrouillé par {lockedByOther.pseudo}
               </span>
             ) : (
               <button
                 onClick={onEdit}
-                className="rounded bg-gtf-blue px-4 py-2 text-xs uppercase tracking-widest text-gtf-text hover:bg-gtf-blue-hover"
+                className={btn("primary", "md")}
               >
                 Modifier ce labo
               </button>
@@ -147,7 +152,7 @@ export function LabMarkerDetailModal({
           {canWrite && (
             <button
               onClick={onDelete}
-              className="rounded border border-gtf-red px-4 py-2 text-xs uppercase tracking-widest text-gtf-red hover:bg-gtf-red/10"
+              className={btn("danger", "md")}
             >
               Supprimer ce labo
             </button>
@@ -155,7 +160,7 @@ export function LabMarkerDetailModal({
           {gang && (
             <Link
               href={`/gangs/${gang.id}`}
-              className="rounded border border-gtf-border px-4 py-2 text-xs uppercase tracking-widest text-gtf-text-muted hover:text-gtf-text"
+              className={btn("secondary", "md")}
             >
               Voir la fiche B.D.D
             </Link>
@@ -173,7 +178,14 @@ export function LabMarkerDetailModal({
             Historique
           </h3>
           {history === null ? (
-            <p className="mt-2 text-sm text-gtf-text-muted">Chargement…</p>
+            <p className="mt-2 flex items-center gap-2 text-sm text-gtf-text-muted">
+              <Spinner className="h-3 w-3 text-gtf-blue-hover" />
+              Chargement…
+            </p>
+          ) : historyError ? (
+            <p role="alert" className="mt-2 text-sm text-gtf-red">
+              Impossible de charger l&apos;historique.
+            </p>
           ) : history.length > 0 ? (
             <ul className="mt-2 flex flex-col gap-2">
               {history.map((entry) => (

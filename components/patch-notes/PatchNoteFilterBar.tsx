@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PATCH_NOTE_CATEGORIE_OPTIONS } from "@/lib/supabase/patch-notes-types";
+import { inputBase } from "@/lib/ui/styles";
 
 const CATEGORIES = [
   { value: "", label: "Toutes les catégories" },
@@ -26,7 +27,7 @@ export function PatchNoteFilterBar() {
       <select
         defaultValue={searchParams.get("categorie") ?? ""}
         onChange={(e) => updateCategorie(e.target.value)}
-        className="rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+        className={inputBase}
       >
         {CATEGORIES.map((c) => (
           <option key={c.value} value={c.value}>

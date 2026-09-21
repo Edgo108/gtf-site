@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useToast } from "@/components/ui/ToastProvider";
+import { inputBase } from "@/lib/ui/styles";
 
 const STATUTS = [
   { value: "", label: "Tous les statuts" },
@@ -17,34 +19,23 @@ export function SearchFilterBar({ resultCount }: { resultCount: number }) {
   const [q, setQ] = useState(searchParams.get("q") ?? "");
   const [, startTransition] = useTransition();
 
+  const toast = useToast();
   const searchKey = searchParams.toString();
-  const [lastKey, setLastKey] = useState(searchKey);
-  const [toast, setToast] = useState<string | null>(null);
+  const lastToastKey = useRef(searchKey);
 
-  // Pas d'effet : on dérive le toast directement pendant le rendu quand
-  // les paramètres de recherche changent (pattern React recommandé pour
-  // éviter un rendu supplémentaire déclenché depuis un effet).
-  if (searchKey !== lastKey) {
-    setLastKey(searchKey);
+  // Confirmation du nombre de résultats quand la recherche change. Le
+  // nombre et les paramètres arrivent ensemble (même navigation), la clé
+  // de recherche évite un second toast si seul le décompte est rafraîchi.
+  useEffect(() => {
+    if (lastToastKey.current === searchKey) return;
+    lastToastKey.current = searchKey;
 
-    const hasQuery = Boolean(
-      searchParams.get("q") || searchParams.get("statut"),
-    );
-
-    if (hasQuery) {
+    if (searchParams.get("q") || searchParams.get("statut")) {
       const label =
         resultCount > 1 ? "enquêtes correspondent" : "enquête correspond";
-      setToast(`${resultCount} ${label} à votre recherche`);
-    } else {
-      setToast(null);
+      toast.info(`${resultCount} ${label} à votre recherche`);
     }
-  }
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(timer);
-  }, [toast]);
+  }, [searchKey, searchParams, resultCount, toast]);
 
   function updateParams(next: { q?: string; statut?: string }) {
     const params = new URLSearchParams(searchParams.toString());
@@ -66,24 +57,6 @@ export function SearchFilterBar({ resultCount }: { resultCount: number }) {
 
   return (
     <>
-      {toast && (
-        <div
-          role="status"
-          className="fixed right-4 top-4 z-50 w-72 rounded-md border border-gtf-blue bg-gtf-panel p-3 text-sm text-gtf-text shadow-lg"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <p>{toast}</p>
-            <button
-              onClick={() => setToast(null)}
-              aria-label="Fermer"
-              className="shrink-0 text-gtf-text-muted hover:text-gtf-text"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="mt-6 flex flex-wrap gap-3">
         <input
           type="search"
@@ -94,12 +67,12 @@ export function SearchFilterBar({ resultCount }: { resultCount: number }) {
             if (e.key === "Enter") updateParams({ q });
           }}
           onBlur={() => updateParams({ q })}
-          className="min-w-[220px] flex-1 rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+          className={`min-w-[220px] flex-1 ${inputBase}`}
         />
         <select
           defaultValue={searchParams.get("statut") ?? ""}
           onChange={(e) => updateParams({ statut: e.target.value })}
-          className="rounded border border-gtf-border bg-gtf-panel-alt px-3 py-2 text-sm text-gtf-text focus:border-gtf-blue focus:outline-none"
+          className={inputBase}
         >
           {STATUTS.map((s) => (
             <option key={s.value} value={s.value}>
