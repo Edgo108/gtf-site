@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { createWantedNotice, updateWantedNotice } from "@/app/(app)/mandats/actions";
 import { createClient } from "@/lib/supabase/client";
 import { normalizeName } from "@/lib/investigations/suspects";
+import { NameSuggestField } from "@/components/ui/NameSuggestField";
+import { useNameSuggestions } from "@/lib/suggestions/use-name-suggestions";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
 import type { Gang, GangMember } from "@/lib/supabase/gangs-types";
 
@@ -36,6 +38,7 @@ export function WantedForm({ notice }: { notice?: WantedNotice }) {
     notice?.photo_url ?? null,
   );
   const [nomSuspect, setNomSuspect] = useState(notice?.nom_suspect ?? "");
+  const nameSuggestions = useNameSuggestions({ excludeNoticeId: notice?.id });
   const [organisations, setOrganisations] = useState<OrganisationEntry[]>([]);
 
   useEffect(() => {
@@ -133,14 +136,13 @@ export function WantedForm({ notice }: { notice?: WantedNotice }) {
         <label htmlFor="nom_suspect" className={labelClass}>
           Nom du suspect
         </label>
-        <input
+        <NameSuggestField
           id="nom_suspect"
           name="nom_suspect"
-          type="text"
           required
-          value={nomSuspect}
-          onChange={(event) => setNomSuspect(event.target.value)}
-          className={fieldClass}
+          suggestions={nameSuggestions}
+          defaultValue={notice?.nom_suspect}
+          onValueChange={setNomSuspect}
         />
         <div className="mt-2">
           <span className={labelClass}>Organisation détectée</span>

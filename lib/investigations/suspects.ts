@@ -1,4 +1,4 @@
-const DIACRITICS_REGEX = new RegExp("[\\u0300-\\u036f]", "g");
+export const DIACRITICS_REGEX =new RegExp("[\\u0300-\\u036f]", "g");
 
 export type SuspectMatch = {
   name: string;

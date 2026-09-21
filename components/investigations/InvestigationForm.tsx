@@ -10,6 +10,8 @@ import {
 } from "@/app/(app)/enquetes/actions";
 import { parseSuspectNames, type SuspectMatch } from "@/lib/investigations/suspects";
 import type { Investigation } from "@/lib/supabase/investigations-types";
+import { NameSuggestField } from "@/components/ui/NameSuggestField";
+import { useNameSuggestions } from "@/lib/suggestions/use-name-suggestions";
 
 const STATUTS: { value: Investigation["statut"]; label: string }[] = [
   { value: "en_cours", label: "En cours" },
@@ -31,6 +33,9 @@ export function InvestigationForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [suspectMatches, setSuspectMatches] = useState<SuspectMatch[]>([]);
+  const nameSuggestions = useNameSuggestions({
+    excludeInvestigationId: investigation?.id,
+  });
   const [lastChecked, setLastChecked] = useState(investigation?.suspects ?? "");
 
   function handleAction(formData: FormData) {
@@ -48,7 +53,7 @@ export function InvestigationForm({
     });
   }
 
-  async function handleSuspectsBlur(event: FocusEvent<HTMLTextAreaElement>) {
+  async function handleSuspectsBlur(event: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const value = event.target.value;
     if (value === lastChecked) return;
     setLastChecked(value);
@@ -159,16 +164,17 @@ export function InvestigationForm({
         <label htmlFor="suspects" className={labelClass}>
           Suspects
         </label>
-        <textarea
+        <NameSuggestField
           id="suspects"
           name="suspects"
+          multiple
           rows={2}
+          suggestions={nameSuggestions}
           defaultValue={investigation?.suspects}
           onBlur={handleSuspectsBlur}
-          className={fieldClass}
         />
         <p className="mt-1 font-mono text-[11px] text-gtf-text-muted">
-          Séparez les noms par une virgule ou un retour à la ligne.
+          Séparez les noms par une virgule ou un retour à la ligne. Tab ou → accepte la suggestion en gris.
         </p>
       </div>
 
