@@ -136,9 +136,11 @@ export async function updateAgent(formData: FormData): Promise<ActionResult> {
 }
 
 // Réattribution du rôle/unité d'un compte. Accessible à l'admin ET aux
-// grades Commandant / Capitaine / Lieutenant (et à eux seuls). La RLS
-// (policy profiles_update_unite + trigger enforce_profile_cross_update)
-// applique la même restriction côté base.
+// grades Commandant / Capitaine / Lieutenant (et à eux seuls). C'est le
+// SEUL chemin d'écriture de `profiles.unite` : la base refuse toute
+// modification directe avec un jeton utilisateur (privilège de colonne
+// retiré + trigger enforce_profile_cross_update, voir
+// supabase/profiles_unite_lockdown.sql).
 export async function updateAgentUnite(
   formData: FormData,
 ): Promise<ActionResult> {

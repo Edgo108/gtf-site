@@ -31,10 +31,12 @@ alter table public.profiles
 -- Filet de sécurité si la colonne existait déjà sans valeur (ré-exécution).
 update public.profiles set unite = 'SASP' where unite is null;
 
--- L'agent connecté peut écrire la colonne `unite` (et uniquement elle,
--- côté autres profils — voir le trigger plus bas). Les lignes réellement
--- modifiables sont filtrées par la policy profiles_update_unite.
-grant update (unite) on public.profiles to authenticated;
+-- SÉCURITÉ : aucun compte connecté ne peut écrire `unite` en direct. Un
+-- `grant update (unite)` permettait à tout agent de s'auto-promouvoir (ex.
+-- SASP → EM) sur sa propre ligne via l'API. Le changement d'unité passe
+-- uniquement par la Server Action updateAgentUnite (clé service_role).
+-- Correctif appliqué en prod par supabase/profiles_unite_lockdown.sql.
+revoke update (unite) on public.profiles from authenticated;
 
 -- ====================================================================
 -- 2. Qui peut modifier le rôle/unité d'un compte
@@ -62,21 +64,15 @@ $$;
 
 grant execute on function public.can_manage_unite() to authenticated;
 
--- Policy UPDATE additionnelle : un habilité peut viser n'importe quelle
--- ligne de profiles. profiles_update_own (id = auth.uid()) reste en place ;
--- PostgreSQL applique un OU entre policies permissives.
+-- Plus de policy d'écriture sur les lignes des AUTRES comptes : la
+-- réattribution d'une unité (admin ou grades habilités) passe par le
+-- serveur. On retire l'ancienne policy si elle existe encore.
 drop policy if exists "profiles_update_unite" on public.profiles;
-create policy "profiles_update_unite"
-  on public.profiles for update
-  to authenticated
-  using (public.can_manage_unite())
-  with check (public.can_manage_unite());
 
--- Le grant de colonnes (doit_changer_mdp + unite) est une union : sans
--- garde-fou, un habilité pourrait aussi toucher doit_changer_mdp sur un
--- autre compte. Ce trigger limite strictement la modification d'un AUTRE
--- profil à la seule colonne `unite`. Il ne gêne pas l'admin applicatif
--- (clé service_role → auth.uid() vaut NULL → la condition est ignorée).
+-- Verrou par trigger : avec un jeton utilisateur, seule la colonne
+-- `doit_changer_mdp` de SA PROPRE ligne est modifiable (déjà garanti par
+-- les grants de colonnes ; le trigger protège si un grant est ajouté par
+-- erreur). La clé service_role (auth.uid() NULL) n'est pas concernée.
 create or replace function public.enforce_profile_cross_update()
 returns trigger
 language plpgsql
@@ -84,18 +80,16 @@ security invoker
 set search_path = public
 as $$
 begin
-  if auth.uid() is not null and new.id <> auth.uid() then
-    if not public.can_manage_unite() then
-      raise exception 'Non autorisé à modifier ce profil.';
-    end if;
-    if new.pseudo is distinct from old.pseudo
+  if auth.uid() is not null then
+    if new.id is distinct from old.id
+       or new.pseudo is distinct from old.pseudo
        or new.role is distinct from old.role
        or new.statut is distinct from old.statut
        or new.grade is distinct from old.grade
-       or new.doit_changer_mdp is distinct from old.doit_changer_mdp
+       or new.unite is distinct from old.unite
        or new.created_at is distinct from old.created_at then
       raise exception
-        'Seule l''unité peut être modifiée sur un autre compte.';
+        'Modification interdite : seul le serveur peut changer ce champ.';
     end if;
   end if;
   return new;
