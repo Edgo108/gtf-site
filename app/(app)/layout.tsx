@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader, type NavLink } from "@/components/layout/AppHeader";
-import { canManageUnite } from "@/lib/permissions";
+import { canAccessOperations, canManageUnite } from "@/lib/permissions";
 import type { Profile } from "@/lib/supabase/types";
 
 export default async function AppLayout({
@@ -21,9 +21,9 @@ export default async function AppLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("pseudo, role, grade")
+    .select("pseudo, role, grade, unite")
     .eq("id", user.id)
-    .single<Pick<Profile, "pseudo" | "role" | "grade">>();
+    .single<Pick<Profile, "pseudo" | "role" | "grade" | "unite">>();
 
   const { data: allAnnouncements } = await supabase
     .from("announcements")
@@ -57,9 +57,16 @@ export default async function AppLayout({
     { href: "/mandats", label: "Mandats", badge: newMandatsCount ?? 0 },
     { href: "/gangs", label: "B.D.D" },
     { href: "/zones", label: "Carte" },
+  ];
+  // Section entièrement invisible pour les agents DOJ, y compris dans la
+  // navigation.
+  if (profile && canAccessOperations(profile)) {
+    links.push({ href: "/operations", label: "Opérations" });
+  }
+  links.push(
     { href: "/annonces", label: "Annonces", badge: unreadCount },
     { href: "/profil", label: "Mon profil" },
-  ];
+  );
   if (profile?.role === "admin" || (profile && canManageUnite(profile))) {
     links.push({ href: "/admin/agents", label: "Gestion des agents" });
   }

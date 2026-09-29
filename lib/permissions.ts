@@ -94,3 +94,15 @@ export const ANNOUNCEMENT_AUTHOR_GRADES = [
 export function canAuthorAnnouncements(grade?: string | null): boolean {
   return ANNOUNCEMENT_AUTHOR_GRADES.includes(grade ?? "");
 }
+
+// --- Section « Opérations » -------------------------------------------
+// Contrairement aux sections ci-dessus, l'écriture sur une opération ne
+// dépend PAS de l'unité : elle est décidée ligne par ligne (lead + agents
+// ajoutés en écriture, voir supabase/operations.sql). La seule règle liée
+// à l'unité est un verrou total pour le DOJ : aucun accès à la section,
+// ni liste ni détail. Utilisé pour la visibilité de la liste ET l'entrée
+// de navigation.
+export function canAccessOperations(actor: ActorUnite): boolean {
+  if (actor.role === "admin") return true;
+  return isUnite(actor.unite) && actor.unite !== "DOJ";
+}
