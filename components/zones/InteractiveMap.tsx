@@ -504,13 +504,18 @@ export function InteractiveMap({
         const map = L.map(containerRef.current, {
           crs: L.CRS.Simple,
           attributionControl: false,
-          zoomControl: true,
+          // Contrôle +/- géré manuellement ci-dessous (positionné en bas à
+          // gauche) : par défaut en haut à gauche, il chevauchait le
+          // panneau d'action principal (zones/labos, aussi en haut à
+          // gauche sur desktop).
+          zoomControl: false,
           center: [img.naturalHeight / 2, img.naturalWidth / 2],
           zoom: fitZoom,
           minZoom: fitZoom,
           maxZoom: fitZoom + 4,
           maxBounds: bounds,
         });
+        L.control.zoom({ position: "bottomleft" }).addTo(map);
 
         const overlay = L.imageOverlay(MAP_LAYERS[0].url, bounds).addTo(map);
         imageOverlayRef.current = overlay;
