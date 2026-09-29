@@ -4,7 +4,12 @@ import { MapLoader } from "@/components/zones/MapLoader";
 import { uniteCanWrite } from "@/lib/permissions";
 import { btn } from "@/lib/ui/styles";
 
-export default async function ZonesPage() {
+export default async function ZonesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ highlight_gang?: string }>;
+}) {
+  const { highlight_gang: highlightGangId } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -35,7 +40,11 @@ export default async function ZonesPage() {
       </div>
 
       <div className="mt-6">
-        <MapLoader currentUserId={user!.id} canWrite={canWrite} />
+        <MapLoader
+          currentUserId={user!.id}
+          canWrite={canWrite}
+          highlightGangId={highlightGangId}
+        />
       </div>
     </div>
   );

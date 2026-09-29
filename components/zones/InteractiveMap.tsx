@@ -101,10 +101,21 @@ function makeLabIcon(
   categorie: LabCategorie | null,
   statut: LabStatut,
   scale = 1,
+  highlighted = false,
 ): L.Icon {
   const w = Math.max(6, Math.round(LAB_ICON_W * scale));
   const h = Math.max(8, Math.round(LAB_ICON_H * scale));
   const tip = Math.round(2 * scale);
+  const classNames = [
+    // Statut "raided" : marqueur grisé/désaturé (voir .gtf-lab-raided
+    // dans app/globals.css), tout en restant cliquable.
+    statut === "raided" ? "gtf-lab-raided" : "",
+    // Surbrillance temporaire « Voir le QG sur la carte » (fiche B.D.D.) :
+    // halo pulsant, voir .gtf-map-highlight dans app/globals.css.
+    highlighted ? "gtf-map-highlight" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   return L.icon({
     // Icône déterminée uniquement par le statut : "?" pour un labo
     // potentiel (categorie inconnue ou pas encore confirmée), quelle
@@ -113,9 +124,7 @@ function makeLabIcon(
     iconSize: [w, h],
     iconAnchor: [w / 2, h - tip],
     tooltipAnchor: [0, -(h - tip)],
-    // Statut "raided" : marqueur grisé/désaturé (voir .gtf-lab-raided
-    // dans app/globals.css), tout en restant cliquable.
-    className: statut === "raided" ? "gtf-lab-raided" : "",
+    className: classNames,
   });
 }
 
@@ -214,12 +223,18 @@ function LinkInvestigationField({
   );
 }
 
+// Durée d'affichage de la surbrillance déclenchée depuis la fiche B.D.D.
+// (« Voir le QG sur la carte ») avant qu'elle ne s'efface toute seule.
+const HIGHLIGHT_DURATION_MS = 6_000;
+
 export function InteractiveMap({
   currentUserId,
   canWrite,
+  highlightGangId,
 }: {
   currentUserId: string;
   canWrite: boolean;
+  highlightGangId?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -308,6 +323,28 @@ export function InteractiveMap({
 
   const [selectedLabId, setSelectedLabId] = useState<string | null>(null);
   const [labModalError, setLabModalError] = useState<string | null>(null);
+
+  // --- Surbrillance « Voir le QG sur la carte » (depuis la fiche B.D.D.) --
+  // Volontairement temporaire (s'efface toute seule) plutôt que persistante
+  // tant que rien n'indique le contraire côté utilisateur. Pas de
+  // recentrage/zoom automatique : la carte garde son état habituel.
+  const [highlightedGangId, setHighlightedGangId] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!highlightGangId) return;
+    // Synchronisation avec un paramètre d'URL externe (arrivée depuis la
+    // fiche B.D.D.) + minuteur d'effacement automatique : cas d'usage
+    // explicitement prévu pour un effet, pas un état dérivable en rendu.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHighlightedGangId(highlightGangId);
+    const timeout = setTimeout(
+      () => setHighlightedGangId(null),
+      HIGHLIGHT_DURATION_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [highlightGangId]);
 
   useEffect(() => {
     modeRef.current = mode;
@@ -534,6 +571,23 @@ export function InteractiveMap({
 
     const gangsById = new Map(gangs.map((g) => [g.id, g]));
 
+    // Zone QG à surligner (« Voir le QG sur la carte » depuis la fiche
+    // B.D.D.) : une organisation ne devrait en avoir qu'une seule ; si
+    // plusieurs existent par erreur, on retient la plus récente sans
+    // bloquer l'affichage (même choix que la fiche B.D.D., voir
+    // app/(app)/gangs/[id]/page.tsx).
+    const highlightedQgZoneId = highlightedGangId
+      ? zones
+          .filter(
+            (z) => z.gang_id === highlightedGangId && z.type_zone === "qg",
+          )
+          .sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime(),
+          )[0]?.id ?? null
+      : null;
+
     for (const zone of zones) {
       const isBeingEdited = mode === "editing" && zone.id === editingZoneId;
       if (isBeingEdited) continue;
@@ -545,13 +599,15 @@ export function InteractiveMap({
       const color = gang?.couleur ?? "#8B94A0";
       const lock = locks.get(zone.id);
       const isLockedByOther = !!lock && lock.locked_by !== currentUserId;
+      const isHighlighted = zone.id === highlightedQgZoneId;
 
       const polygon = L.polygon(pointsToLatLngs(zone.points), {
         color: isLockedByOther ? "#8B94A0" : color,
-        weight: 2,
+        weight: isHighlighted ? 5 : 2,
         fillColor: color,
-        fillOpacity: isLockedByOther ? 0.15 : 0.35,
+        fillOpacity: isLockedByOther ? 0.15 : isHighlighted ? 0.5 : 0.35,
         dashArray: zone.type_zone === "qg" ? "6,6" : undefined,
+        className: isHighlighted ? "gtf-map-highlight" : "",
       });
 
       if (isLockedByOther) {
@@ -577,6 +633,7 @@ export function InteractiveMap({
     currentUserId,
     filters.zoneVente,
     filters.zoneQg,
+    highlightedGangId,
   ]);
 
   // --- Rendu des marqueurs laboratoire ---------------------------------
@@ -605,8 +662,15 @@ export function InteractiveMap({
       const lock = labLocks.get(marker.id);
       const isLockedByOther = !!lock && lock.locked_by !== currentUserId;
 
+      const isHighlighted = marker.organisation_id === highlightedGangId;
+
       const m = L.marker([marker.position.y, marker.position.x], {
-        icon: makeLabIcon(marker.categorie, marker.statut, labIconScale),
+        icon: makeLabIcon(
+          marker.categorie,
+          marker.statut,
+          labIconScale,
+          isHighlighted,
+        ),
       });
 
       if (isLockedByOther) {
@@ -636,6 +700,7 @@ export function InteractiveMap({
     filters.labActif,
     filters.labRaided,
     filters.labPotentiel,
+    highlightedGangId,
   ]);
 
   // --- Aperçu du dessin d'une nouvelle zone -----------------------------

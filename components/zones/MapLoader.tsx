@@ -20,9 +20,17 @@ const InteractiveMap = dynamic(
 export function MapLoader({
   currentUserId,
   canWrite,
+  highlightGangId,
 }: {
   currentUserId: string;
   canWrite: boolean;
+  highlightGangId?: string;
 }) {
-  return <InteractiveMap currentUserId={currentUserId} canWrite={canWrite} />;
+  return (
+    <InteractiveMap
+      currentUserId={currentUserId}
+      canWrite={canWrite}
+      highlightGangId={highlightGangId}
+    />
+  );
 }

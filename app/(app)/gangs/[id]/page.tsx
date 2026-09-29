@@ -46,6 +46,18 @@ export default async function GangDetailPage({
     .order("nom", { ascending: true })
     .returns<GangMember[]>();
 
+  // Une organisation ne devrait avoir qu'UNE SEULE zone QG sur la carte.
+  // Si plusieurs existent par erreur, on prend la plus récente (ORDER BY
+  // created_at DESC + LIMIT 1) sans bloquer l'affichage de la fiche.
+  const { data: qgZones } = await supabase
+    .from("sensitive_zones")
+    .select("id")
+    .eq("gang_id", id)
+    .eq("type_zone", "qg")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const hasQgZone = (qgZones?.length ?? 0) > 0;
+
   return (
     <div className="mx-auto max-w-3xl">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -68,17 +80,30 @@ export default async function GangDetailPage({
             </div>
           </div>
         </div>
-        {canWrite && (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Visible à tout agent actif (lecture de la carte toujours
+              autorisée, quelle que soit l'unité) — pas seulement ceux qui
+              peuvent modifier la B.D.D. */}
+          {hasQgZone && (
             <Link
-              href={`/gangs/${gang.id}/modifier`}
+              href={`/zones?highlight_gang=${gang.id}`}
               className={btn("secondary", "md")}
             >
-              Modifier
+              Voir le QG sur la carte
             </Link>
-            <DeleteGangButton id={gang.id} />
-          </div>
-        )}
+          )}
+          {canWrite && (
+            <>
+              <Link
+                href={`/gangs/${gang.id}/modifier`}
+                className={btn("secondary", "md")}
+              >
+                Modifier
+              </Link>
+              <DeleteGangButton id={gang.id} />
+            </>
+          )}
+        </div>
       </div>
 
       <Panel title="Activités" className="mt-6">

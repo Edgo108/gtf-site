@@ -123,6 +123,33 @@ body {
   opacity: 0.5;
 }
 
+/* --- Surbrillance temporaire « Voir le QG sur la carte » ---
+   Appliquée à la fois à une zone (polygone SVG) et à des marqueurs labo
+   (icônes <img>) : `filter: drop-shadow` fonctionne sur les deux. Halo
+   pulsant par défaut ; fixe (sans animation) si l'utilisateur préfère
+   réduire les animations. */
+.gtf-map-highlight {
+  /* Couleur ambre déjà utilisée par la charte (cf. --color-gtf-amber /
+     .border-gtf-amber dans lib/ui/styles.ts), pour rester cohérent. */
+  filter: drop-shadow(0 0 6px #C99A3E) drop-shadow(0 0 2px #C99A3E);
+}
+
+@keyframes gtf-map-highlight-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 3px #C99A3E) drop-shadow(0 0 1px #C99A3E);
+  }
+  50% {
+    filter: drop-shadow(0 0 12px #C99A3E) drop-shadow(0 0 4px #C99A3E);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .gtf-map-highlight {
+    animation: gtf-map-highlight-pulse 1.4s ease-in-out infinite;
+  }
+}
+
 /* --- Notifications toast ---
    Entrée discrète depuis le bas ; désactivée si l'utilisateur préfère
    réduire les animations. */
