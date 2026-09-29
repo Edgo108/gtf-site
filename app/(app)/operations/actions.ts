@@ -10,6 +10,10 @@ import {
   type OperationLinkKind,
   type OperationStatut,
 } from "@/lib/supabase/operations-types";
+import {
+  isOperationDrawingType,
+  type OperationDrawingDonnees,
+} from "@/lib/supabase/operation-drawings-types";
 
 type ActionResult = { error?: string };
 
@@ -227,6 +231,94 @@ export async function addOperationLink(
       return { error: "Cet élément est déjà lié à cette opération." };
     }
     return { error: "Impossible d'ajouter ce lien (accès refusé ?)." };
+  }
+
+  revalidatePath(`/operations/${operationId}`);
+  return {};
+}
+
+// --- Carte de planification (dessins) ------------------------------------
+// Écriture réservée à l'admin/lead/agent en écriture, appliqué en RLS via
+// can_access_operation() — aucune vérification supplémentaire nécessaire
+// ici : le détail d'une opération n'est de toute façon accessible qu'à ces
+// trois profils (voir la page /operations/[id]).
+
+export async function addOperationDrawing(
+  formData: FormData,
+): Promise<ActionResult> {
+  const { supabase, user } = await requireActiveUser();
+
+  const operationId = String(formData.get("operation_id") ?? "");
+  const typeRaw = String(formData.get("type_element") ?? "");
+  const donneesRaw = String(formData.get("donnees") ?? "");
+
+  if (!operationId || !isOperationDrawingType(typeRaw) || !donneesRaw) {
+    return { error: "Champs manquants." };
+  }
+
+  let donnees: OperationDrawingDonnees;
+  try {
+    donnees = JSON.parse(donneesRaw);
+  } catch {
+    return { error: "Données de dessin invalides." };
+  }
+
+  const { error } = await supabase.from("operation_drawings").insert({
+    operation_id: operationId,
+    type_element: typeRaw,
+    donnees,
+    created_by: user.id,
+  });
+
+  if (error) {
+    return { error: "Impossible d'ajouter cet élément (accès refusé ?)." };
+  }
+
+  revalidatePath(`/operations/${operationId}`);
+  return {};
+}
+
+export async function deleteOperationDrawing(
+  formData: FormData,
+): Promise<ActionResult> {
+  const { supabase } = await requireActiveUser();
+
+  const id = String(formData.get("id") ?? "");
+  const operationId = String(formData.get("operation_id") ?? "");
+  if (!id || !operationId) {
+    return { error: "Champs manquants." };
+  }
+
+  const { error, count } = await supabase
+    .from("operation_drawings")
+    .delete({ count: "exact" })
+    .eq("id", id);
+
+  if (error || !count) {
+    return { error: "Suppression impossible (accès refusé ?)." };
+  }
+
+  revalidatePath(`/operations/${operationId}`);
+  return {};
+}
+
+export async function clearOperationDrawings(
+  formData: FormData,
+): Promise<ActionResult> {
+  const { supabase } = await requireActiveUser();
+
+  const operationId = String(formData.get("operation_id") ?? "");
+  if (!operationId) {
+    return { error: "Identifiant manquant." };
+  }
+
+  const { error } = await supabase
+    .from("operation_drawings")
+    .delete()
+    .eq("operation_id", operationId);
+
+  if (error) {
+    return { error: "Impossible de tout effacer (accès refusé ?)." };
   }
 
   revalidatePath(`/operations/${operationId}`);

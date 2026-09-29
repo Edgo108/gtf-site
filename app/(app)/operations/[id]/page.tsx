@@ -7,6 +7,7 @@ import { ActionButton } from "@/components/ui/ActionButton";
 import { OperationStatutBadge } from "@/components/operations/OperationStatutBadge";
 import { WritersSection, type WriterRow } from "@/components/operations/WritersSection";
 import { LinkSection, type LinkedRow } from "@/components/operations/LinkSection";
+import { PlanningMapLoader } from "@/components/operations/PlanningMapLoader";
 import { deleteOperation } from "@/app/(app)/operations/actions";
 import { LAB_CATEGORIE_LABELS } from "@/lib/supabase/lab-markers-types";
 import type { Operation } from "@/lib/supabase/operations-types";
@@ -323,9 +324,12 @@ export default async function OperationDetailPage({
       </div>
 
       <Panel title="Carte de planification" className="mt-4">
-        <p className="text-sm text-gtf-text-muted">
-          Emplacement réservé — sera ajoutée dans un second temps.
+        <p className="mb-3 text-xs text-gtf-text-muted">
+          Fond de référence (zones et labos en lecture seule) identique à
+          la carte principale — les tracés ci-dessous sont propres à cette
+          opération et n&apos;apparaissent nulle part ailleurs.
         </p>
+        <PlanningMapLoader operationId={operation.id} />
       </Panel>
     </div>
   );
