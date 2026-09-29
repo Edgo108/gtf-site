@@ -64,8 +64,25 @@ function readFields(formData: FormData) {
   const agent_responsable = String(
     formData.get("agent_responsable") ?? "",
   ).trim();
+  // Casier de preuves : champs optionnels, chaîne vide stockée comme null
+  // plutôt que "" (cohérent avec la colonne nullable).
+  const casierNumeroRaw = String(formData.get("casier_numero") ?? "").trim();
+  const casier_numero = casierNumeroRaw || null;
+  const casierCodeAccesRaw = String(
+    formData.get("casier_code_acces") ?? "",
+  ).trim();
+  const casier_code_acces = casierCodeAccesRaw || null;
 
-  return { titre, statut, suspects, preuves, description, agent_responsable };
+  return {
+    titre,
+    statut,
+    suspects,
+    preuves,
+    description,
+    agent_responsable,
+    casier_numero,
+    casier_code_acces,
+  };
 }
 
 export async function createInvestigation(

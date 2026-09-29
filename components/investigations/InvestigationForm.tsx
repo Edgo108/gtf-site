@@ -211,6 +211,41 @@ export function InvestigationForm({
         />
       </div>
 
+      <div className="rounded-md border border-gtf-border bg-gtf-panel-alt/50 p-4">
+        <p className="font-display text-xs font-semibold uppercase tracking-wide text-gtf-text">
+          Casier de preuves
+        </p>
+        <p className="mt-1 font-mono text-[11px] text-gtf-text-muted">
+          Référence du casier physique de la salle des saisies — facultatif.
+        </p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="casier_numero" className={labelClass}>
+              Numéro de casier
+            </label>
+            <input
+              id="casier_numero"
+              name="casier_numero"
+              type="text"
+              defaultValue={investigation?.casier_numero ?? ""}
+              className={fieldClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="casier_code_acces" className={labelClass}>
+              Code d&apos;accès
+            </label>
+            <input
+              id="casier_code_acces"
+              name="casier_code_acces"
+              type="text"
+              defaultValue={investigation?.casier_code_acces ?? ""}
+              className={fieldClass}
+            />
+          </div>
+        </div>
+      </div>
+
       <FormFooter
         error={error}
         pending={pending}

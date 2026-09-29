@@ -46,6 +46,8 @@ type ComparableFields = Pick<
   | "preuves"
   | "description"
   | "agent_responsable"
+  | "casier_numero"
+  | "casier_code_acces"
 >;
 
 export function buildChangeSummary(
@@ -77,6 +79,12 @@ export function buildChangeSummary(
   }
   if (before.description !== after.description) {
     changes.push("Description modifiée");
+  }
+  if (before.casier_numero !== after.casier_numero) {
+    changes.push("Numéro de casier modifié");
+  }
+  if (before.casier_code_acces !== after.casier_code_acces) {
+    changes.push("Code d'accès au casier modifié");
   }
 
   return changes.length > 0 ? changes.join(" · ") : "Aucun changement détecté";

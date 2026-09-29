@@ -116,6 +116,31 @@ export default async function EnqueteDetailPage({
         </p>
       </Panel>
 
+      <Panel title="Casier de preuves" className="mt-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <span className="font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
+              Numéro de casier
+            </span>
+            <p className="mt-1 text-sm">
+              {investigation.casier_numero || (
+                <span className="text-gtf-text-muted">Non renseigné</span>
+              )}
+            </p>
+          </div>
+          <div>
+            <span className="font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
+              Code d&apos;accès
+            </span>
+            <p className="mt-1 text-sm">
+              {investigation.casier_code_acces || (
+                <span className="text-gtf-text-muted">Non renseigné</span>
+              )}
+            </p>
+          </div>
+        </div>
+      </Panel>
+
       {linkedLabs && linkedLabs.length > 0 && (
         <Panel title="Laboratoires liés" className="mt-4">
           <ul className="flex flex-col gap-2">

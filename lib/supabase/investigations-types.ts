@@ -8,6 +8,10 @@ export type Investigation = {
   preuves: string;
   description: string;
   agent_responsable: string;
+  // Casier de preuves physique (salle des saisies du serveur RP) — les
+  // deux champs sont optionnels, non renseignés = null.
+  casier_numero: string | null;
+  casier_code_acces: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
