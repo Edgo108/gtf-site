@@ -68,7 +68,7 @@ export function AppHeader({
             href="/dashboard"
             className="font-display text-sm font-bold uppercase tracking-widest text-gtf-text"
           >
-            Gang Task Force
+            S.A.S.P - MDT
           </Link>
           <nav
             aria-label="Navigation principale"

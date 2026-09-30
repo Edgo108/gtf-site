@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Oswald, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/ToastProvider";
+import { MadeBySignature } from "@/components/layout/MadeBySignature";
 
 const oswald = Oswald({
   variable: "--font-oswald",
@@ -22,7 +23,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Gang Task Force",
+  title: "S.A.S.P - MDT",
   description: "Unité de police anti-gang — GTA RP",
 };
 
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <ToastProvider>{children}</ToastProvider>
+        <MadeBySignature />
       </body>
     </html>
   );

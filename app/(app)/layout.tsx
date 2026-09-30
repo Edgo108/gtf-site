@@ -81,7 +81,7 @@ export default async function AppLayout({
         grade={profile?.grade}
       />
 
-      <main className="p-4 sm:p-6">{children}</main>
+      <main className="p-4 pb-10 sm:p-6 sm:pb-10">{children}</main>
     </div>
   );
 }
