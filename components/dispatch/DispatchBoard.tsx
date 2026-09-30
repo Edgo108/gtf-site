@@ -19,6 +19,7 @@ import {
   lacherDispatch,
   prendreDispatch,
   prendreService,
+  resetDispatch,
   setAgentStatut,
   setUnitCategorie,
 } from "@/app/(app)/dispatch/actions";
@@ -331,6 +332,25 @@ export function DispatchBoard({
               )
             )}
           </div>
+          {isDispatcher && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    "Reset dispatch : tous les agents en service repassent en attente de dispatch (sans unité) et toutes les catégories de patrouille sont effacées. Continuer ?",
+                  )
+                ) {
+                  return;
+                }
+                act(() => resetDispatch(), "Dispatch réinitialisé");
+              }}
+              className={btn("danger", "sm", "mt-3")}
+            >
+              Reset dispatch
+            </button>
+          )}
           {canDispatch && (
             <p className="mt-2 font-mono text-[11px] text-gtf-text-muted">
               Glissez un agent (<GripVertical className="inline h-3 w-3" />) sur

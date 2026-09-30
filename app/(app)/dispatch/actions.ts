@@ -307,6 +307,37 @@ export async function lacherDispatch(): Promise<ActionResult> {
   return {};
 }
 
+// « Reset dispatch » : tous les agents en service repassent en attente sans
+// unité, et toutes les unités perdent leur catégorie de patrouille. Le
+// rôle de dispatcheur n'est pas touché. Réservé au dispatcheur actif —
+// pas à l'admin qui ne l'est pas (vérifié par la fonction SQL
+// is_active_dispatcher(), qui ne tient pas compte du rôle admin).
+export async function resetDispatch(): Promise<ActionResult> {
+  const { supabase, user } = await requireActiveUser();
+
+  const { data: isDispatcher } = await supabase.rpc("is_active_dispatcher");
+  if (isDispatcher !== true) {
+    return { error: "Seul le dispatcheur actif peut réinitialiser le dispatch." };
+  }
+
+  const [agentsReset, unitsReset] = await Promise.all([
+    supabase
+      .from("agent_status")
+      .update({ statut: "en_attente_dispatch", unite_id: null })
+      .not("id", "is", null),
+    supabase
+      .from("dispatch_units")
+      .update({ categorie_patrouille: null })
+      .not("id", "is", null),
+  ]);
+
+  if (agentsReset.error || unitsReset.error) {
+    return { error: "Réinitialisation incomplète, réessayez." };
+  }
+  await touchDispatch(supabase, user.id);
+  return {};
+}
+
 // Signal d'activité du dispatcheur (envoyé par la page, au plus une fois
 // par minute tant qu'il interagit).
 export async function heartbeatDispatch(): Promise<void> {
