@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pseudoToEmail } from "@/lib/auth/pseudo";
+import { EDGO_ACCOUNT_ID } from "@/lib/constants";
 import { canManageUnite, isUnite, UNITES } from "@/lib/permissions";
 
 type ActionResult = { error?: string; success?: boolean };
@@ -251,6 +252,9 @@ export async function deleteAgent(formData: FormData): Promise<ActionResult> {
 
   if (!id) {
     return { error: "Identifiant manquant." };
+  }
+  if (id === EDGO_ACCOUNT_ID) {
+    return { error: "Ce compte est protégé : sa suppression est impossible." };
   }
   if (id === currentUser.id) {
     return { error: "Vous ne pouvez pas supprimer votre propre compte." };

@@ -11,7 +11,7 @@ import {
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Spinner } from "@/components/ui/Spinner";
 import { AgentStatutBadge } from "@/components/admin/AgentStatutBadge";
-import { GRADES } from "@/lib/constants";
+import { EDGO_ACCOUNT_ID, GRADES } from "@/lib/constants";
 import { UNITES, UNITE_LABELS } from "@/lib/permissions";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { btn, fieldClass, fieldCompactClass } from "@/lib/ui/styles";
@@ -350,9 +350,9 @@ function AgentRow({
                     success={`Compte de ${profile.pseudo} supprimé`}
                     variant="danger"
                     size="sm"
-                    disabled={isSelf}
+                    disabled={isSelf || profile.id === EDGO_ACCOUNT_ID}
                   >
-                    Supprimer
+                    {profile.id === EDGO_ACCOUNT_ID ? "Compte protégé" : "Supprimer"}
                   </ActionButton>
                 </>
               )}
