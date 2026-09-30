@@ -13,15 +13,26 @@ import { fieldClass, labelClass } from "@/lib/ui/styles";
 import { AgentMultiSelect } from "./AgentMultiSelect";
 import { SignatureField } from "./SignatureField";
 import { VERSION_FIELD } from "@/lib/concurrency";
+import { InfractionPicker } from "./InfractionPicker";
+import type {
+  CodePenalPickerArticle,
+  InfractionLine,
+} from "@/lib/supabase/code-penal-types";
 
 export function RapportForm({
   rapport,
   agents,
+  articles,
+  infractions,
   defaultDateRedaction,
   defaultRedacteurId,
 }: {
   rapport?: Rapport;
   agents: AgentOption[];
+  // Code Pénal (sélecteur des faits reprochés).
+  articles: CodePenalPickerArticle[];
+  // Infractions déjà enregistrées (modification).
+  infractions?: InfractionLine[];
   // « Maintenant » (heure de Paris), calculé par la page serveur à
   // l'ouverture du formulaire de création.
   defaultDateRedaction?: string;
@@ -163,15 +174,14 @@ export function RapportForm({
       </div>
 
       <div>
-        <label htmlFor="faits_reproches" className={labelClass}>
-          Faits reprochés
+        <label htmlFor="infractions" className={labelClass}>
+          Faits reprochés (articles du Code Pénal enfreints)
         </label>
-        <textarea
-          id="faits_reproches"
-          name="faits_reproches"
-          rows={4}
-          defaultValue={rapport?.faits_reproches}
-          className={fieldClass}
+        <InfractionPicker
+          id="infractions"
+          name="infractions"
+          articles={articles}
+          defaultValue={infractions}
         />
       </div>
 

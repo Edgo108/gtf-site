@@ -24,6 +24,7 @@ export default {
           red: "#B23A32",
           green: "#4B8B6B",
           amber: "#C99A3E",
+          orange: "#D9772E",
         },
       },
       fontFamily: {

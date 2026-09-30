@@ -2,10 +2,14 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { getAgentOptions } from "@/lib/archives/agents";
 import { nowParisInputValue } from "@/lib/datetime";
 import { RapportForm } from "@/components/archives/RapportForm";
+import { getCodePenalPickerArticles } from "@/lib/archives/code-penal";
 
 export default async function NouveauRapportPage() {
   const user = await getCurrentUser();
-  const agents = await getAgentOptions();
+  const [agents, articles] = await Promise.all([
+    getAgentOptions(),
+    getCodePenalPickerArticles(),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -18,6 +22,7 @@ export default async function NouveauRapportPage() {
       <div className="mt-6">
         <RapportForm
           agents={agents}
+          articles={articles}
           defaultDateRedaction={nowParisInputValue()}
           defaultRedacteurId={user?.id}
         />

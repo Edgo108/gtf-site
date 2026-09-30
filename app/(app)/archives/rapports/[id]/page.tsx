@@ -11,6 +11,11 @@ import { softDeleteRapport } from "@/app/(app)/archives/actions";
 import { Signature } from "@/components/archives/Signature";
 import { formatNumero, type Rapport } from "@/lib/supabase/archives-types";
 import { btn } from "@/lib/ui/styles";
+import { InfractionList } from "@/components/archives/InfractionList";
+import {
+  getCodePenalArticlesByIds,
+  getRapportInfractions,
+} from "@/lib/archives/code-penal";
 
 export default async function RapportDetailPage({
   params,
@@ -37,6 +42,11 @@ export default async function RapportDetailPage({
   if (!rapport) {
     notFound();
   }
+
+  const infractions = await getRapportInfractions(rapport.id);
+  const articles = await getCodePenalArticlesByIds(
+    infractions.map((l) => l.article_id),
+  );
 
   const pseudoById = await getPseudoMap([
     rapport.agent_redacteur_id,
@@ -136,9 +146,7 @@ export default async function RapportDetailPage({
       </Panel>
 
       <Panel title="Faits reprochés" className="mt-4">
-        <p className="whitespace-pre-wrap break-words text-sm">
-          {rapport.faits_reproches || "—"}
-        </p>
+        <InfractionList lines={infractions} articles={articles} />
       </Panel>
 
       <Panel title="Descriptif de la situation" className="mt-4">

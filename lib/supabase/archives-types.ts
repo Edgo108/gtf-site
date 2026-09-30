@@ -9,7 +9,6 @@ export type Rapport = {
   agents_lies: string[];
   nom_suspect: string;
   date_lecture_miranda: string | null;
-  faits_reproches: string;
   descriptif_situation: string;
   signature_agent_redacteur: string | null;
   created_by: string | null;

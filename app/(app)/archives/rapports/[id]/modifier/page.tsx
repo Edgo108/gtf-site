@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAgentOptions } from "@/lib/archives/agents";
 import { RapportForm } from "@/components/archives/RapportForm";
+import {
+  getCodePenalPickerArticles,
+  getRapportInfractions,
+} from "@/lib/archives/code-penal";
 import { formatNumero, type Rapport } from "@/lib/supabase/archives-types";
 
 export default async function ModifierRapportPage({
@@ -22,9 +26,10 @@ export default async function ModifierRapportPage({
     notFound();
   }
 
-  const agents = await getAgentOptions([
-    rapport.agent_redacteur_id,
-    ...rapport.agents_lies,
+  const [agents, articles, infractions] = await Promise.all([
+    getAgentOptions([rapport.agent_redacteur_id, ...rapport.agents_lies]),
+    getCodePenalPickerArticles(),
+    getRapportInfractions(rapport.id),
   ]);
 
   return (
@@ -33,7 +38,12 @@ export default async function ModifierRapportPage({
         Modifier le rapport #{formatNumero(rapport.numero)}
       </h1>
       <div className="mt-6">
-        <RapportForm rapport={rapport} agents={agents} />
+        <RapportForm
+          rapport={rapport}
+          agents={agents}
+          articles={articles}
+          infractions={infractions}
+        />
       </div>
     </div>
   );
