@@ -9,6 +9,7 @@ import { FormFooter } from "@/components/ui/FormFooter";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { fieldClass, labelClass } from "@/lib/ui/styles";
 import { SignatureField } from "./SignatureField";
+import { VERSION_FIELD } from "@/lib/concurrency";
 
 export function PlainteForm({
   plainte,
@@ -40,6 +41,8 @@ export function PlainteForm({
     setError(null);
     if (plainte) {
       formData.set("id", plainte.id);
+      // Version ouverte : refus à l'enregistrement si la fiche a changé.
+      formData.set(VERSION_FIELD, plainte.updated_at);
     }
 
     startTransition(async () => {

@@ -15,6 +15,7 @@ import { useNameSuggestions } from "@/lib/suggestions/use-name-suggestions";
 import { FormFooter } from "@/components/ui/FormFooter";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { fieldClass, labelClass } from "@/lib/ui/styles";
+import { VERSION_FIELD } from "@/lib/concurrency";
 
 const STATUTS: { value: Investigation["statut"]; label: string }[] = [
   { value: "en_cours", label: "En cours" },
@@ -42,6 +43,8 @@ export function InvestigationForm({
     setError(null);
     if (investigation) {
       formData.set("id", investigation.id);
+      // Version ouverte : refus à l'enregistrement si la fiche a changé.
+      formData.set(VERSION_FIELD, investigation.updated_at);
     }
 
     startTransition(async () => {

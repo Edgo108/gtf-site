@@ -26,6 +26,7 @@ import {
 import { Spinner } from "@/components/ui/Spinner";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { btn, fieldCompactClass } from "@/lib/ui/styles";
+import { keepIfUnchanged } from "@/lib/ui/keep-if-unchanged";
 
 // Mêmes 3 fonds de carte que la carte principale (/zones) — dupliqué
 // volontairement plutôt que partagé, pour garder cette carte de
@@ -176,9 +177,9 @@ export function PlanningMap({ operationId }: { operationId: string }) {
         supabase.from("sensitive_zones").select("*").returns<SensitiveZone[]>(),
         supabase.from("lab_markers").select("*").returns<LabMarker[]>(),
       ]);
-      if (!gangsRes.error) setGangs(gangsRes.data ?? []);
-      if (!zonesRes.error) setZones(zonesRes.data ?? []);
-      if (!labsRes.error) setLabMarkers(labsRes.data ?? []);
+      if (!gangsRes.error) setGangs(keepIfUnchanged(gangsRes.data ?? []));
+      if (!zonesRes.error) setZones(keepIfUnchanged(zonesRes.data ?? []));
+      if (!labsRes.error) setLabMarkers(keepIfUnchanged(labsRes.data ?? []));
       setDataLoaded(true);
     } catch {
       // Sondage périodique : une erreur ponctuelle réessaiera toute seule.
@@ -194,7 +195,7 @@ export function PlanningMap({ operationId }: { operationId: string }) {
         .eq("operation_id", operationId)
         .order("created_at", { ascending: true })
         .returns<OperationDrawing[]>();
-      if (!error) setDrawings(data ?? []);
+      if (!error) setDrawings(keepIfUnchanged(data ?? []));
     } catch {
       // idem
     }
@@ -207,11 +208,23 @@ export function PlanningMap({ operationId }: { operationId: string }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchBackgroundData();
     fetchDrawings();
+    // Pas de sondage quand l'onglet est en arrière-plan ; rattrapage
+    // immédiat au retour sur l'onglet.
     const interval = setInterval(() => {
+      if (document.hidden) return;
       fetchBackgroundData();
       fetchDrawings();
     }, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+    function onVisibilityChange() {
+      if (document.hidden) return;
+      fetchBackgroundData();
+      fetchDrawings();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
     // Exécuté une seule fois : `operationId` est fixe pour la durée de vie
     // de ce composant.
     // eslint-disable-next-line react-hooks/exhaustive-deps

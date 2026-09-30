@@ -43,6 +43,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { btn, fieldCompactClass } from "@/lib/ui/styles";
+import { keepIfUnchanged } from "@/lib/ui/keep-if-unchanged";
 
 type InvestigationOption = Pick<Investigation, "id" | "titre">;
 
@@ -401,10 +402,10 @@ export function InteractiveMap({
         return;
       }
 
-      setGangs(gangsRes.data ?? []);
-      setZones(zonesRes.data ?? []);
-      setLabMarkers(labsRes.data ?? []);
-      setInvestigations(investigationsRes.data ?? []);
+      setGangs(keepIfUnchanged(gangsRes.data ?? []));
+      setZones(keepIfUnchanged(zonesRes.data ?? []));
+      setLabMarkers(keepIfUnchanged(labsRes.data ?? []));
+      setInvestigations(keepIfUnchanged(investigationsRes.data ?? []));
       setDataLoaded(true);
       reportPollSuccess();
     } catch {
@@ -432,7 +433,7 @@ export function InteractiveMap({
           });
         }
       }
-      setLocks(zn);
+      setLocks(keepIfUnchanged(zn));
 
       const lb = new Map<string, LockInfo>();
       for (const l of markerLocks) {
@@ -444,7 +445,7 @@ export function InteractiveMap({
           });
         }
       }
-      setLabLocks(lb);
+      setLabLocks(keepIfUnchanged(lb));
     } catch {
       reportPollFailure();
     }
@@ -456,11 +457,23 @@ export function InteractiveMap({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchMapData();
     fetchLocks();
+    // Pas de sondage quand l'onglet est en arrière-plan ; rattrapage
+    // immédiat au retour sur l'onglet.
     const interval = setInterval(() => {
+      if (document.hidden) return;
       fetchMapData();
       fetchLocks();
     }, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+    function onVisibilityChange() {
+      if (document.hidden) return;
+      fetchMapData();
+      fetchLocks();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
     // Exécuté une seule fois : `toast` (utilisé par les fonctions de
     // sondage) est stable, inutile de relancer le sondage à chaque rendu.
     // eslint-disable-next-line react-hooks/exhaustive-deps

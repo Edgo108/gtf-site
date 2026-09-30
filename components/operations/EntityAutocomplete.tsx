@@ -13,11 +13,18 @@ export function EntityAutocomplete({
   onSelect,
   placeholder,
   disabled,
+  onOpen,
+  loading = false,
 }: {
   items: { id: string; label: string }[];
   onSelect: (id: string) => void;
   placeholder: string;
   disabled?: boolean;
+  // Appelé à chaque ouverture de la liste (chargement à la demande).
+  onOpen?: () => void;
+  // Liste pas encore chargée : affiche « Chargement… » au lieu de
+  // « Aucun résultat ».
+  loading?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -50,14 +57,22 @@ export function EntityAutocomplete({
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
+          onOpen?.();
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setOpen(true);
+          onOpen?.();
+        }}
         placeholder={placeholder}
         className={fieldClass}
       />
       {open && (
         <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded border border-gtf-border bg-gtf-panel shadow-lg">
-          {matches.length > 0 ? (
+          {loading ? (
+            <li className="px-2 py-1.5 text-xs text-gtf-text-muted">
+              Chargement…
+            </li>
+          ) : matches.length > 0 ? (
             matches.slice(0, 8).map((item) => (
               <li key={item.id}>
                 <button

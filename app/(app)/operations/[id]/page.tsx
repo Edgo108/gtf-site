@@ -10,15 +10,9 @@ import { WritersSection, type WriterRow } from "@/components/operations/WritersS
 import { LinkSection, type LinkedRow } from "@/components/operations/LinkSection";
 import { PlanningMapLoader } from "@/components/operations/PlanningMapLoader";
 import { deleteOperation } from "@/app/(app)/operations/actions";
-import { LAB_CATEGORIE_LABELS } from "@/lib/supabase/lab-markers-types";
-import type { Operation } from "@/lib/supabase/operations-types";
+import type { Operation, OperationLinkKind } from "@/lib/supabase/operations-types";
+import { fetchLinkTargets } from "@/lib/operations/link-targets";
 import { btn } from "@/lib/ui/styles";
-
-const ZONE_TYPE_LABELS: Record<string, string> = {
-  vente: "Vente",
-  qg: "QG",
-  influence: "QG", // valeur historique, cf. supabase/sensitive_zones_qg.sql
-};
 
 export default async function OperationDetailPage({
   params,
@@ -122,118 +116,60 @@ export default async function OperationDetailPage({
     supabase.from("operation_gangs").select("id, gang_id").eq("operation_id", id),
   ]);
 
-  const linkedInvestigationIds = new Set(
-    (linkedInvestigationRows ?? []).map((r) => r.investigation_id),
+  // Seuls les éléments DÉJÀ liés sont chargés avec la page. Les listes de
+  // choix (tout le reste) ne sont chargées qu'à l'ouverture d'un champ de
+  // recherche (getOperationLinkOptions), plutôt qu'à chaque visite.
+  const linkRows: Record<
+    OperationLinkKind,
+    { linkId: string; targetId: string }[]
+  > = {
+    investigation: (linkedInvestigationRows ?? []).map((r) => ({
+      linkId: r.id,
+      targetId: r.investigation_id,
+    })),
+    wanted_notice: (linkedWantedRows ?? []).map((r) => ({
+      linkId: r.id,
+      targetId: r.wanted_notice_id,
+    })),
+    lab_marker: (linkedLabRows ?? []).map((r) => ({
+      linkId: r.id,
+      targetId: r.lab_marker_id,
+    })),
+    zone: (linkedZoneRows ?? []).map((r) => ({ linkId: r.id, targetId: r.zone_id })),
+    gang: (linkedGangRows ?? []).map((r) => ({ linkId: r.id, targetId: r.gang_id })),
+  };
+
+  const kinds: OperationLinkKind[] = [
+    "investigation",
+    "wanted_notice",
+    "lab_marker",
+    "zone",
+    "gang",
+  ];
+  const targetsByKind = await Promise.all(
+    kinds.map((kind) =>
+      fetchLinkTargets(
+        supabase,
+        kind,
+        linkRows[kind].map((r) => r.targetId),
+      ),
+    ),
   );
-  const linkedWantedIds = new Set(
-    (linkedWantedRows ?? []).map((r) => r.wanted_notice_id),
-  );
-  const linkedLabIds = new Set((linkedLabRows ?? []).map((r) => r.lab_marker_id));
-  const linkedZoneIds = new Set((linkedZoneRows ?? []).map((r) => r.zone_id));
-  const linkedGangIds = new Set((linkedGangRows ?? []).map((r) => r.gang_id));
 
-  const [
-    { data: allInvestigations },
-    { data: allWanted },
-    { data: allLabs },
-    { data: allZones },
-    { data: allGangs },
-  ] = await Promise.all([
-    supabase.from("investigations").select("id, titre").order("titre"),
-    supabase.from("wanted_notices").select("id, nom_suspect").order("nom_suspect"),
-    supabase
-      .from("lab_markers")
-      .select("id, categorie, gangs(nom)")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("sensitive_zones")
-      .select("id, type_zone, gangs(nom)")
-      .order("created_at", { ascending: false }),
-    supabase.from("gangs").select("id, nom").order("nom"),
-  ]);
-
-  function labMarkerLabel(row: {
-    id: string;
-    categorie: string | null;
-    gangs: { nom: string } | { nom: string }[] | null;
-  }): string {
-    const gang = Array.isArray(row.gangs) ? row.gangs[0] : row.gangs;
-    const categorieLabel = row.categorie
-      ? (LAB_CATEGORIE_LABELS as Record<string, string>)[row.categorie] ??
-        row.categorie
-      : "Potentiel";
-    return `${gang?.nom ?? "Organisation inconnue"} — ${categorieLabel}`;
-  }
-
-  function zoneLabel(row: {
-    id: string;
-    type_zone: string;
-    gangs: { nom: string } | { nom: string }[] | null;
-  }): string {
-    const gang = Array.isArray(row.gangs) ? row.gangs[0] : row.gangs;
-    return `${gang?.nom ?? "Organisation inconnue"} — ${
-      ZONE_TYPE_LABELS[row.type_zone] ?? row.type_zone
-    }`;
-  }
-
-  const linkedInvestigations: LinkedRow[] = (allInvestigations ?? [])
-    .filter((i) => linkedInvestigationIds.has(i.id))
-    .map((i) => ({
-      linkId:
-        linkedInvestigationRows?.find((r) => r.investigation_id === i.id)
-          ?.id ?? i.id,
-      label: i.titre,
-      href: `/enquetes/${i.id}`,
-    }));
-
-  const linkedWanted: LinkedRow[] = (allWanted ?? [])
-    .filter((w) => linkedWantedIds.has(w.id))
-    .map((w) => ({
-      linkId:
-        linkedWantedRows?.find((r) => r.wanted_notice_id === w.id)?.id ?? w.id,
-      label: w.nom_suspect,
-      href: `/mandats/${w.id}`,
-    }));
-
-  const linkedLabs: LinkedRow[] = (allLabs ?? [])
-    .filter((l) => linkedLabIds.has(l.id))
-    .map((l) => ({
-      linkId: linkedLabRows?.find((r) => r.lab_marker_id === l.id)?.id ?? l.id,
-      label: labMarkerLabel(l),
-      href: "/zones",
-    }));
-
-  const linkedZones: LinkedRow[] = (allZones ?? [])
-    .filter((z) => linkedZoneIds.has(z.id))
-    .map((z) => ({
-      linkId: linkedZoneRows?.find((r) => r.zone_id === z.id)?.id ?? z.id,
-      label: zoneLabel(z),
-      href: "/zones",
-    }));
-
-  const linkedGangs: LinkedRow[] = (allGangs ?? [])
-    .filter((g) => linkedGangIds.has(g.id))
-    .map((g) => ({
-      linkId: linkedGangRows?.find((r) => r.gang_id === g.id)?.id ?? g.id,
-      label: g.nom,
-      href: `/gangs/${g.id}`,
-    }));
-
-  const availableInvestigations = (allInvestigations ?? [])
-    .filter((i) => !linkedInvestigationIds.has(i.id))
-    .map((i) => ({ id: i.id, label: i.titre }));
-  const availableWanted = (allWanted ?? [])
-    .filter((w) => !linkedWantedIds.has(w.id))
-    .map((w) => ({ id: w.id, label: w.nom_suspect }));
-  const availableLabs = (allLabs ?? [])
-    .filter((l) => !linkedLabIds.has(l.id))
-    .map((l) => ({ id: l.id, label: labMarkerLabel(l) }));
-  const availableZones = (allZones ?? [])
-    .filter((z) => !linkedZoneIds.has(z.id))
-    .map((z) => ({ id: z.id, label: zoneLabel(z) }));
-  const availableGangs = (allGangs ?? [])
-    .filter((g) => !linkedGangIds.has(g.id))
-    .map((g) => ({ id: g.id, label: g.nom }));
+  // Un élément lié mais passé en corbeille (invisible via la RLS) n'est
+  // simplement pas affiché, comme avant.
+  const linked = Object.fromEntries(
+    kinds.map((kind, i) => {
+      const byId = new Map(targetsByKind[i].map((t) => [t.id, t]));
+      const rows: LinkedRow[] = linkRows[kind].flatMap((r) => {
+        const target = byId.get(r.targetId);
+        return target
+          ? [{ linkId: r.linkId, targetId: r.targetId, label: target.label, href: target.href }]
+          : [];
+      });
+      return [kind, rows];
+    }),
+  ) as Record<OperationLinkKind, LinkedRow[]>;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -289,36 +225,31 @@ export default async function OperationDetailPage({
           title="Mandats liés"
           kind="wanted_notice"
           operationId={operation.id}
-          linked={linkedWanted}
-          available={availableWanted}
+          linked={linked["wanted_notice"]}
         />
         <LinkSection
           title="Enquêtes liées"
           kind="investigation"
           operationId={operation.id}
-          linked={linkedInvestigations}
-          available={availableInvestigations}
+          linked={linked["investigation"]}
         />
         <LinkSection
           title="Labos liés"
           kind="lab_marker"
           operationId={operation.id}
-          linked={linkedLabs}
-          available={availableLabs}
+          linked={linked["lab_marker"]}
         />
         <LinkSection
           title="Zones liées"
           kind="zone"
           operationId={operation.id}
-          linked={linkedZones}
-          available={availableZones}
+          linked={linked["zone"]}
         />
         <LinkSection
           title="Groupes B.D.D. liés"
           kind="gang"
           operationId={operation.id}
-          linked={linkedGangs}
-          available={availableGangs}
+          linked={linked["gang"]}
         />
       </div>
 

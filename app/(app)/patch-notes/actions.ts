@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin as requireAdminContext } from "@/lib/auth/require";
 import {
   isPatchNoteCategorie,
   todayISODate,
@@ -16,26 +16,12 @@ const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 // L'admin est le seul rôle habilité à écrire (RLS l'impose aussi côté
 // base : policies patch_notes_insert/update/delete → public.is_admin()).
 async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { error: "Non authentifié." as const };
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role !== "admin") {
+  try {
+    const { supabase, user } = await requireAdminContext();
+    return { supabase, user };
+  } catch {
     return { error: "Accès réservé à l'administrateur." as const };
   }
-
-  return { supabase, user };
 }
 
 function readFields(formData: FormData) {

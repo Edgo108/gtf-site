@@ -1,8 +1,8 @@
 "use server";
 
+import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { uniteCanWrite } from "@/lib/permissions";
 import { normalizeName } from "@/lib/investigations/suspects";
 import { WANTED_PHOTOS_BUCKET, wantedPhotoPath } from "@/lib/wanted/photos";
@@ -10,6 +10,12 @@ import type {
   NiveauDangerosite,
   WantedStatut,
 } from "@/lib/supabase/wanted-notices-types";
+import { requireActiveUser } from "@/lib/auth/require";
+import {
+  isSameVersion,
+  readExpectedVersion,
+  STALE_EDIT_ERROR,
+} from "@/lib/concurrency";
 
 type ActionResult = { error?: string };
 
@@ -28,25 +34,6 @@ const ALLOWED_TYPES: Record<string, string> = {
 };
 
 const BUCKET = WANTED_PHOTOS_BUCKET;
-
-async function requireActiveUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Non authentifié.");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, unite")
-    .eq("id", user.id)
-    .single();
-
-  return { supabase, user, profile: profile ?? {} };
-}
 
 async function uploadWantedPhoto(
   supabase: ServerSupabase,
@@ -186,12 +173,19 @@ export async function updateWantedNotice(
 
   const { data: existing } = await supabase
     .from("wanted_notices")
-    .select("photo_url")
+    .select("photo_url, updated_at")
     .eq("id", id)
     .single();
 
   if (!existing) {
     return { error: "Mandat introuvable." };
+  }
+
+  // Vérifié dès maintenant : ne pas toucher à la photo d'une fiche que
+  // quelqu'un d'autre vient de modifier.
+  const expected = readExpectedVersion(formData);
+  if (expected && !isSameVersion(expected, existing.updated_at)) {
+    return { error: STALE_EDIT_ERROR };
   }
 
   const fields = readFields(formData);
@@ -225,13 +219,18 @@ export async function updateWantedNotice(
     fields.nom_suspect,
   );
 
-  const { error } = await supabase
+  let update = supabase
     .from("wanted_notices")
     .update({ ...fields, statut, photo_url, organisation_gang_id })
     .eq("id", id);
+  if (expected) update = update.eq("updated_at", expected);
+  const { data: updated, error } = await update.select("id");
 
   if (error) {
     return { error: "Impossible de mettre à jour le mandat." };
+  }
+  if (!updated || updated.length === 0) {
+    return { error: STALE_EDIT_ERROR };
   }
 
   revalidatePath(`/mandats/${id}`);

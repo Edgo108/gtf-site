@@ -15,6 +15,8 @@ import type {
   Investigation,
   InvestigationStatut,
 } from "@/lib/supabase/investigations-types";
+import { requireActiveUser } from "@/lib/auth/require";
+import { readExpectedVersion, STALE_EDIT_ERROR } from "@/lib/concurrency";
 
 type ActionResult = { error?: string };
 
@@ -23,29 +25,6 @@ const VALID_STATUTS: InvestigationStatut[] = [
   "cloturee",
   "archivee",
 ];
-
-async function requireActiveUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Non authentifié.");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("pseudo, role, unite")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile) {
-    throw new Error("Profil introuvable.");
-  }
-
-  return { supabase, user, profile };
-}
 
 const NO_WRITE_ENQUETES =
   "Votre unité n'autorise pas la modification des enquêtes (lecture seule).";
@@ -150,13 +129,19 @@ export async function updateInvestigation(
     return { error: "Le titre est obligatoire." };
   }
 
-  const { error } = await supabase
+  const expected = readExpectedVersion(formData);
+  let update = supabase
     .from("investigations")
     .update(fields)
     .eq("id", id);
+  if (expected) update = update.eq("updated_at", expected);
+  const { data: updated, error } = await update.select("id");
 
   if (error) {
     return { error: "Impossible de mettre à jour l'enquête." };
+  }
+  if (!updated || updated.length === 0) {
+    return { error: STALE_EDIT_ERROR };
   }
 
   const resume = buildChangeSummary(oldRow, { ...oldRow, ...fields });

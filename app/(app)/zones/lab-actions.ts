@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uniteCanWrite } from "@/lib/permissions";
 import { buildLabMarkerChangeSummary } from "@/lib/lab-markers/change-summary";
@@ -13,34 +12,12 @@ import {
   type LabMarker,
   type LabMarkerPosition,
 } from "@/lib/supabase/lab-markers-types";
+import { requireActiveUser } from "@/lib/auth/require";
 
 type ActionResult = { error?: string; id?: string };
 
 const NO_WRITE_LABS =
   "Seuls les rôles ID et GTF peuvent gérer les marqueurs laboratoire.";
-
-async function requireActiveUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Non authentifié.");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("pseudo, role, unite")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile) {
-    throw new Error("Profil introuvable.");
-  }
-
-  return { supabase, user, profile };
-}
 
 function parsePosition(raw: string): LabMarkerPosition | null {
   try {
@@ -211,10 +188,28 @@ export async function deleteLabMarker(
   if (!id) return { error: "Identifiant manquant." };
 
   const admin = createAdminClient();
+
+  // La mise à la corbeille passe par la clé service_role (pas de grant
+  // sur deleted_at) : elle contournerait le verrou anti-conflit si on ne
+  // le revérifiait pas ici, comme le fait la RLS pour la modification.
+  const { data: lock } = await admin
+    .from("lab_marker_locks")
+    .select("locked_by, locked_at")
+    .eq("marker_id", id)
+    .maybeSingle();
+  if (
+    lock &&
+    lock.locked_by !== user.id &&
+    Date.now() - new Date(lock.locked_at).getTime() <= LOCK_DURATION_MS
+  ) {
+    return { error: "Ce laboratoire est en cours de modification par un autre agent : suppression impossible pour l'instant." };
+  }
+
   const { error } = await admin
     .from("lab_markers")
     .update({ deleted_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .is("deleted_at", null);
 
   if (error) {
     return { error: "Suppression impossible." };

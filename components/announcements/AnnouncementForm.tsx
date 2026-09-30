@@ -10,6 +10,7 @@ import type { Announcement } from "@/lib/supabase/announcements-types";
 import { FormFooter } from "@/components/ui/FormFooter";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { fieldClass, labelClass } from "@/lib/ui/styles";
+import { VERSION_FIELD } from "@/lib/concurrency";
 
 const PRIORITES = [
   { value: "normale", label: "Normale" },
@@ -31,6 +32,8 @@ export function AnnouncementForm({
     setError(null);
     if (announcement) {
       formData.set("id", announcement.id);
+      // Version ouverte : refus à l'enregistrement si la fiche a changé.
+      formData.set(VERSION_FIELD, announcement.updated_at);
     }
 
     startTransition(async () => {

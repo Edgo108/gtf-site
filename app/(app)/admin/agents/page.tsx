@@ -38,6 +38,19 @@ export default async function AdminAgentsPage() {
     .select("*")
     .order("created_at", { ascending: true });
 
+  // Identifiant de connexion = partie avant « @ » de l'email interne du
+  // compte (fixé à la création, ne suit pas les renommages de pseudo).
+  // Affiché aux admins seulement.
+  const loginById: Record<string, string> = {};
+  if (isFullAdmin) {
+    const { data: authUsers } = await admin.auth.admin.listUsers({
+      perPage: 1000,
+    });
+    for (const u of authUsers?.users ?? []) {
+      if (u.email) loginById[u.id] = u.email.split("@")[0];
+    }
+  }
+
   return (
     <div className="mx-auto max-w-5xl">
       <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
@@ -64,6 +77,7 @@ export default async function AdminAgentsPage() {
           currentUserId={user.id}
           canManageAgents={isFullAdmin}
           canManageUnite={isFullAdmin || isUniteManager}
+          loginById={loginById}
         />
       </div>
     </div>

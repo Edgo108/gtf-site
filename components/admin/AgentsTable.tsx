@@ -12,6 +12,7 @@ import { ActionButton } from "@/components/ui/ActionButton";
 import { Spinner } from "@/components/ui/Spinner";
 import { AgentStatutBadge } from "@/components/admin/AgentStatutBadge";
 import { EDGO_ACCOUNT_ID, GRADES } from "@/lib/constants";
+import { slugifyPseudo } from "@/lib/auth/pseudo";
 import { UNITES, UNITE_LABELS } from "@/lib/permissions";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { btn, fieldClass, fieldCompactClass } from "@/lib/ui/styles";
@@ -28,11 +29,15 @@ export function AgentsTable({
   currentUserId,
   canManageAgents,
   canManageUnite,
+  loginById = {},
 }: {
   profiles: Profile[];
   currentUserId: string;
   canManageAgents: boolean;
   canManageUnite: boolean;
+  // Identifiant de connexion de chaque compte (admin uniquement). Il est
+  // fixé à la création et ne suit pas les renommages de pseudo.
+  loginById?: Record<string, string>;
 }) {
   const [query, setQuery] = useState("");
 
@@ -40,7 +45,13 @@ export function AgentsTable({
   const visible = profiles
     .filter((p) => {
       if (!q) return true;
-      return [p.pseudo, p.grade, p.unite, UNITE_LABELS[p.unite] ?? ""]
+      return [
+        p.pseudo,
+        loginById[p.id] ?? "",
+        p.grade,
+        p.unite,
+        UNITE_LABELS[p.unite] ?? "",
+      ]
         .join(" ")
         .toLowerCase()
         .includes(q);
@@ -86,6 +97,7 @@ export function AgentsTable({
                 isSelf={profile.id === currentUserId}
                 canManageAgents={canManageAgents}
                 canManageUnite={canManageUnite}
+                login={loginById[profile.id]}
               />
             ))}
             {visible.length === 0 && (
@@ -161,11 +173,13 @@ function AgentRow({
   isSelf,
   canManageAgents,
   canManageUnite,
+  login,
 }: {
   profile: Profile;
   isSelf: boolean;
   canManageAgents: boolean;
   canManageUnite: boolean;
+  login?: string;
 }) {
   const run = useActionRunner();
   const [editing, setEditing] = useState(false);
@@ -235,6 +249,23 @@ function AgentRow({
           />
         ) : (
           profile.pseudo
+        )}
+        {login && (
+          <span
+            className={`mt-0.5 block font-mono text-[11px] ${
+              login === slugifyPseudo(profile.pseudo)
+                ? "text-gtf-text-muted"
+                : "text-gtf-amber"
+            }`}
+            title="Identifiant à saisir sur la page de connexion. Il ne change pas quand le pseudo est renommé."
+          >
+            Connexion : {login}
+          </span>
+        )}
+        {editing && (
+          <span className="mt-1 block font-mono text-[11px] text-gtf-text-muted">
+            Renommer ne change pas l&apos;identifiant de connexion.
+          </span>
         )}
       </td>
       <td data-label="Grade" className="px-4 py-3">

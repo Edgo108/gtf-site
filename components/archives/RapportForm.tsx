@@ -12,6 +12,7 @@ import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { fieldClass, labelClass } from "@/lib/ui/styles";
 import { AgentMultiSelect } from "./AgentMultiSelect";
 import { SignatureField } from "./SignatureField";
+import { VERSION_FIELD } from "@/lib/concurrency";
 
 export function RapportForm({
   rapport,
@@ -45,6 +46,8 @@ export function RapportForm({
     setError(null);
     if (rapport) {
       formData.set("id", rapport.id);
+      // Version ouverte : refus à l'enregistrement si la fiche a changé.
+      formData.set(VERSION_FIELD, rapport.updated_at);
     }
 
     startTransition(async () => {

@@ -2,37 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPseudoMap } from "@/lib/archives/agents";
 import { parisInputToISO } from "@/lib/datetime";
+import { requireActiveUser } from "@/lib/auth/require";
+import { readExpectedVersion, STALE_EDIT_ERROR } from "@/lib/concurrency";
 
 type ActionResult = { error?: string };
-
-// Rapports / Plaintes : ouverts à tout agent actif, quelle que soit son
-// unité (la RLS vérifie is_active_agent() de son côté).
-async function requireActiveUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Non authentifié.");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, statut")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile || profile.statut !== "actif") {
-    throw new Error("Compte inactif.");
-  }
-
-  return { supabase, user, profile };
-}
 
 function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -137,17 +113,16 @@ export async function updateRapport(
   const parsed = await readRapportFields(formData);
   if ("error" in parsed) return { error: parsed.error };
 
-  const { data, error } = await supabase
-    .from("rapports")
-    .update(parsed.fields)
-    .eq("id", id)
-    .select("id");
+  const expected = readExpectedVersion(formData);
+  let update = supabase.from("rapports").update(parsed.fields).eq("id", id);
+  if (expected) update = update.eq("updated_at", expected);
+  const { data, error } = await update.select("id");
 
   if (error) {
     return { error: "Impossible de mettre à jour le rapport." };
   }
   if (!data || data.length === 0) {
-    return { error: "Rapport introuvable." };
+    return { error: expected ? STALE_EDIT_ERROR : "Rapport introuvable." };
   }
 
   revalidatePath(`/archives/rapports/${id}`);
@@ -272,17 +247,16 @@ export async function updatePlainte(
   const parsed = await readPlainteFields(formData);
   if ("error" in parsed) return { error: parsed.error };
 
-  const { data, error } = await supabase
-    .from("plaintes")
-    .update(parsed.fields)
-    .eq("id", id)
-    .select("id");
+  const expected = readExpectedVersion(formData);
+  let update = supabase.from("plaintes").update(parsed.fields).eq("id", id);
+  if (expected) update = update.eq("updated_at", expected);
+  const { data, error } = await update.select("id");
 
   if (error) {
     return { error: "Impossible de mettre à jour la plainte." };
   }
   if (!data || data.length === 0) {
-    return { error: "Plainte introuvable." };
+    return { error: expected ? STALE_EDIT_ERROR : "Plainte introuvable." };
   }
 
   revalidatePath(`/archives/plaintes/${id}`);

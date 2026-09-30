@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uniteCanWrite } from "@/lib/permissions";
 import {
@@ -11,6 +10,8 @@ import {
   type MembreStatut,
   type NiveauMenace,
 } from "@/lib/supabase/gangs-types";
+import { requireActiveUser } from "@/lib/auth/require";
+import { readExpectedVersion, STALE_EDIT_ERROR } from "@/lib/concurrency";
 
 type ActionResult = { error?: string };
 
@@ -26,25 +27,6 @@ const VALID_MEMBER_STATUTS: MembreStatut[] = [
 ];
 const HEX_COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
 const DEFAULT_COLOR = "#3E6FA6";
-
-async function requireActiveUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Non authentifié.");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, unite")
-    .eq("id", user.id)
-    .single();
-
-  return { supabase, user, profile: profile ?? {} };
-}
 
 function ensureCanWriteGangs(profile: {
   role?: string | null;
@@ -128,10 +110,19 @@ export async function updateGang(formData: FormData): Promise<ActionResult> {
     return { error: "Le nom est obligatoire." };
   }
 
-  const { error } = await supabase.from("gangs").update(fields).eq("id", id);
+  const expected = readExpectedVersion(formData);
+  let update = supabase
+    .from("gangs")
+    .update(fields)
+    .eq("id", id);
+  if (expected) update = update.eq("updated_at", expected);
+  const { data: updated, error } = await update.select("id");
 
   if (error) {
     return { error: "Impossible de mettre à jour la fiche." };
+  }
+  if (!updated || updated.length === 0) {
+    return { error: STALE_EDIT_ERROR };
   }
 
   revalidatePath(`/gangs/${id}`);

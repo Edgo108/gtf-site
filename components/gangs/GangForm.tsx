@@ -10,6 +10,7 @@ import {
 import { FormFooter } from "@/components/ui/FormFooter";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { fieldClass, labelClass } from "@/lib/ui/styles";
+import { VERSION_FIELD } from "@/lib/concurrency";
 
 const NIVEAUX = [
   { value: "faible", label: "Faible" },
@@ -32,6 +33,8 @@ export function GangForm({ gang }: { gang?: Gang }) {
     setError(null);
     if (gang) {
       formData.set("id", gang.id);
+      // Version ouverte : refus à l'enregistrement si la fiche a changé.
+      formData.set(VERSION_FIELD, gang.updated_at);
     }
     formData.set(
       "couleur",

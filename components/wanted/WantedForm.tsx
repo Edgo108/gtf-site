@@ -14,6 +14,7 @@ import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { resizeWantedPhoto } from "@/lib/wanted/resize-photo";
 import { useToast } from "@/components/ui/ToastProvider";
 import { fieldClass, labelClass } from "@/lib/ui/styles";
+import { VERSION_FIELD } from "@/lib/concurrency";
 
 const AUCUNE_ORGANISATION = "Aucune organisation identifiée";
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 Mo, comme uploadWantedPhoto
@@ -101,6 +102,8 @@ export function WantedForm({ notice }: { notice?: WantedNotice }) {
     setError(null);
     if (notice) {
       formData.set("id", notice.id);
+      // Version ouverte : refus à l'enregistrement si la fiche a changé.
+      formData.set(VERSION_FIELD, notice.updated_at);
     }
 
     startTransition(async () => {

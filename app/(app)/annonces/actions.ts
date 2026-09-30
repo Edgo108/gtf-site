@@ -1,10 +1,12 @@
 "use server";
 
+import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requireActiveUser } from "@/lib/auth/require";
 import { canAuthorAnnouncements, uniteCanWrite } from "@/lib/permissions";
 import type { AnnouncementPriorite } from "@/lib/supabase/announcements-types";
+import { readExpectedVersion, STALE_EDIT_ERROR } from "@/lib/concurrency";
 
 type ActionResult = { error?: string };
 
@@ -21,22 +23,9 @@ function readPriorite(formData: FormData): AnnouncementPriorite {
 }
 
 async function requireAnnouncementAuthor() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user, profile } = await requireActiveUser();
 
-  if (!user) {
-    throw new Error("Non authentifié.");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("grade, role, unite")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile || !canAuthorAnnouncements(profile.grade)) {
+  if (!canAuthorAnnouncements(profile.grade)) {
     throw new Error(
       "Seuls les Lieutenants, Capitaines et Commandants peuvent créer une notification.",
     );
@@ -51,22 +40,7 @@ async function requireAnnouncementAuthor() {
 
 // Créateur d'une annonce ou admin — ET unité habilitée à écrire.
 async function requireAnnouncementManager() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Non authentifié.");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, unite")
-    .eq("id", user.id)
-    .single();
-
-  return { supabase, user, profile: profile ?? {} };
+  return requireActiveUser();
 }
 
 export async function createAnnouncement(
@@ -124,13 +98,19 @@ export async function updateAnnouncement(
     return { error: "Le titre est obligatoire." };
   }
 
-  const { error } = await supabase
+  const expected = readExpectedVersion(formData);
+  let update = supabase
     .from("announcements")
     .update({ titre, message, priorite })
     .eq("id", id);
+  if (expected) update = update.eq("updated_at", expected);
+  const { data: updated, error } = await update.select("id");
 
   if (error) {
     return { error: "Impossible de modifier la notification." };
+  }
+  if (!updated || updated.length === 0) {
+    return { error: STALE_EDIT_ERROR };
   }
 
   revalidatePath("/annonces");

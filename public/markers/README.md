@@ -21,8 +21,11 @@ nom** (`arme.png`, `cocaine.png`, `meth.png`, `potentiel.png`).
 
 Recommandations :
 
-- PNG avec fond transparent, format **portrait** (les images actuelles
-  font ~537×681, ratio ~0.79)
+- PNG avec fond transparent, format **portrait**, ratio ~0.79, en
+  **~132×168 px** (3× la taille d'affichage, net sur écran haute
+  densité). Inutile d'aller au-delà : une icône de 1000 px pèse ~1 Mo
+  pour rien. Les images actuelles ont été réduites à cette taille
+  (10 Ko chacune au lieu de 300 Ko à 1,2 Mo).
 - forme d'**épingle pointant vers le bas**, la pointe touchant quasiment
   le bas de l'image : l'icône est ancrée en bas-centre, affichée en
   44×56 px sur la carte — voir `makeLabIcon` / `LAB_ICON_W` / `LAB_ICON_H`

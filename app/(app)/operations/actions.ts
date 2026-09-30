@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { canAccessOperations } from "@/lib/permissions";
 import {
   isOperationStatut,
@@ -14,31 +13,10 @@ import {
   isOperationDrawingType,
   type OperationDrawingDonnees,
 } from "@/lib/supabase/operation-drawings-types";
+import { requireActiveUser } from "@/lib/auth/require";
+import { fetchLinkTargets } from "@/lib/operations/link-targets";
 
 type ActionResult = { error?: string };
-
-async function requireActiveUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Non authentifié.");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("pseudo, role, unite")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile) {
-    throw new Error("Profil introuvable.");
-  }
-
-  return { supabase, user, profile };
-}
 
 const NO_ACCESS_OPERATIONS =
   "Votre unité n'a pas accès à la section Opérations.";
@@ -235,6 +213,17 @@ export async function addOperationLink(
 
   revalidatePath(`/operations/${operationId}`);
   return {};
+}
+
+// Liste de choix d'un champ « Rechercher pour ajouter… », chargée à la
+// demande (ouverture du champ) au lieu d'être envoyée avec chaque page.
+export async function getOperationLinkOptions(
+  kind: OperationLinkKind,
+): Promise<{ id: string; label: string }[]> {
+  const { supabase } = await requireActiveUser();
+  if (!OPERATION_LINK_CONFIG[kind]) return [];
+  const targets = await fetchLinkTargets(supabase, kind);
+  return targets.map(({ id, label }) => ({ id, label }));
 }
 
 // --- Carte de planification (dessins) ------------------------------------

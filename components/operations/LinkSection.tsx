@@ -1,15 +1,24 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
-import { addOperationLink, removeOperationLink } from "@/app/(app)/operations/actions";
+import {
+  addOperationLink,
+  getOperationLinkOptions,
+  removeOperationLink,
+} from "@/app/(app)/operations/actions";
 import { EntityAutocomplete } from "@/components/operations/EntityAutocomplete";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Panel } from "@/components/ui/Panel";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
 import type { OperationLinkKind } from "@/lib/supabase/operations-types";
 
-export type LinkedRow = { linkId: string; label: string; href: string };
+export type LinkedRow = {
+  linkId: string;
+  targetId: string;
+  label: string;
+  href: string;
+};
 
 // Section générique de liens many-to-many (enquêtes / mandats / labos /
 // zones / groupes B.D.D.) : recherche + auto-complétion pour ajouter un
@@ -20,16 +29,35 @@ export function LinkSection({
   kind,
   operationId,
   linked,
-  available,
 }: {
   title: string;
   kind: OperationLinkKind;
   operationId: string;
   linked: LinkedRow[];
-  available: { id: string; label: string }[];
 }) {
   const run = useActionRunner();
   const [pending, startTransition] = useTransition();
+  // Liste de choix chargée à la première ouverture du champ de recherche
+  // (null = pas encore chargée), puis gardée pour la visite.
+  const [options, setOptions] = useState<{ id: string; label: string }[] | null>(
+    null,
+  );
+  const [loadingOptions, setLoadingOptions] = useState(false);
+
+  async function loadOptions() {
+    if (options !== null || loadingOptions) return;
+    setLoadingOptions(true);
+    try {
+      setOptions(await getOperationLinkOptions(kind));
+    } catch {
+      setOptions(null);
+    } finally {
+      setLoadingOptions(false);
+    }
+  }
+
+  const linkedIds = new Set(linked.map((l) => l.targetId));
+  const available = (options ?? []).filter((o) => !linkedIds.has(o.id));
 
   function handleAdd(targetId: string) {
     const formData = new FormData();
@@ -75,6 +103,8 @@ export function LinkSection({
         <EntityAutocomplete
           items={available}
           onSelect={handleAdd}
+          onOpen={loadOptions}
+          loading={options === null}
           disabled={pending}
           placeholder="Rechercher pour ajouter…"
         />

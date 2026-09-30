@@ -12,6 +12,7 @@ import {
   type DispatchSnapshot,
   type DispatchUnit,
 } from "@/lib/supabase/dispatch-types";
+import { requireActiveUser } from "@/lib/auth/require";
 
 // Toutes les écritures passent par le client Supabase de l'utilisateur :
 // ce sont la RLS et le trigger de supabase/dispatch.sql qui décident
@@ -22,29 +23,6 @@ import {
 type ActionResult = { error?: string };
 
 const DENIED = "Action non autorisée (droits insuffisants ou rôle expiré).";
-
-async function requireActiveUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Non authentifié.");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, statut")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile || profile.statut !== "actif") {
-    throw new Error("Compte inactif.");
-  }
-
-  return { supabase, user, profile };
-}
 
 type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
 

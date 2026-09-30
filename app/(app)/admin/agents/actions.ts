@@ -1,56 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pseudoToEmail } from "@/lib/auth/pseudo";
 import { EDGO_ACCOUNT_ID } from "@/lib/constants";
 import { canManageUnite, isUnite, UNITES } from "@/lib/permissions";
+import { requireActiveUser, requireAdmin } from "@/lib/auth/require";
 
 type ActionResult = { error?: string; success?: boolean };
-
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error("Non authentifié.");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role !== "admin") {
-    throw new Error("Accès réservé aux administrateurs.");
-  }
-
-  return user;
-}
 
 // L'admin OU un grade habilité (Commandant / Capitaine / Lieutenant).
 // Sert uniquement à la réattribution du rôle/unité d'un compte.
 async function requireUniteManager() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await requireActiveUser();
 
-  if (!user) {
-    throw new Error("Non authentifié.");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, grade")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile || !canManageUnite(profile)) {
+  if (!canManageUnite(profile)) {
     throw new Error(
       "Seuls l'administrateur et les grades Commandant / Capitaine / Lieutenant peuvent réattribuer une unité.",
     );
@@ -89,7 +53,12 @@ export async function createAgent(
     });
 
   if (createError || !created.user) {
-    return { error: "Ce pseudo est déjà utilisé ou invalide." };
+    // L'identifiant de connexion dérive du pseudo À LA CRÉATION et ne suit
+    // jamais les renommages : il peut donc être déjà pris par un compte
+    // renommé depuis (ex. identifiant « edgo »).
+    return {
+      error: `Identifiant de connexion « ${email.split("@")[0]} » déjà utilisé par un autre compte (éventuellement renommé depuis), ou pseudo invalide.`,
+    };
   }
 
   const { error: profileError } = await admin.from("profiles").insert({
@@ -265,7 +234,7 @@ export async function resetAgentPassword(
 }
 
 export async function deleteAgent(formData: FormData): Promise<ActionResult> {
-  const currentUser = await requireAdmin();
+  const { user: currentUser } = await requireAdmin();
 
   const id = String(formData.get("id") ?? "");
 
@@ -280,6 +249,29 @@ export async function deleteAgent(formData: FormData): Promise<ActionResult> {
   }
 
   const admin = createAdminClient();
+
+  // Rapports, plaintes (corbeille comprise) et opérations gardent leur
+  // agent rédacteur / lead : la base refuse la suppression d'un compte
+  // qui en a encore (on delete restrict). On l'explique au lieu d'échouer.
+  const countOf = (table: string, column: string) =>
+    admin.from(table).select("id", { count: "exact", head: true }).eq(column, id);
+  const [{ count: leads }, { count: rapports }, { count: plaintes }] =
+    await Promise.all([
+      countOf("operations", "lead_id"),
+      countOf("rapports", "agent_redacteur_id"),
+      countOf("plaintes", "agent_redacteur_id"),
+    ]);
+  const blockers = [
+    leads ? `lead de ${leads} opération${leads > 1 ? "s" : ""}` : null,
+    rapports ? `rédacteur de ${rapports} rapport${rapports > 1 ? "s" : ""}` : null,
+    plaintes ? `rédacteur de ${plaintes} plainte${plaintes > 1 ? "s" : ""}` : null,
+  ].filter(Boolean);
+  if (blockers.length > 0) {
+    return {
+      error: `Suppression impossible : ce compte est ${blockers.join(", ")} (corbeille comprise). Suspendez-le plutôt. (Pour les rapports et plaintes, on peut aussi changer leur agent rédacteur ; le lead d'une opération, lui, ne se transfère pas.)`,
+    };
+  }
+
   const { error } = await admin.auth.admin.deleteUser(id);
   if (error) {
     return { error: "Impossible de supprimer ce compte." };
