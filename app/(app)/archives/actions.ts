@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPseudoMap } from "@/lib/archives/agents";
-import { parisInputToISO } from "@/lib/archives/datetime";
+import { parisInputToISO } from "@/lib/datetime";
 
 type ActionResult = { error?: string };
 

@@ -6,6 +6,7 @@ import {
 } from "@/app/(app)/admin/enquetes/corbeille/actions";
 import { TrashActions } from "@/components/ui/TrashActions";
 import type { Investigation } from "@/lib/supabase/investigations-types";
+import { formatParisDateTime } from "@/lib/datetime";
 
 export function TrashTable({
   investigations,
@@ -40,7 +41,7 @@ export function TrashTable({
                 className="px-4 py-3 font-mono text-xs text-gtf-text-muted"
               >
                 {investigation.deleted_at
-                  ? new Date(investigation.deleted_at).toLocaleString("fr-FR")
+                  ? formatParisDateTime(investigation.deleted_at)
                   : "—"}
               </td>
               <td className="px-4 py-3">

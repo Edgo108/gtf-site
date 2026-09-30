@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CreateAgentForm } from "@/components/admin/CreateAgentForm";
 import { AgentsTable } from "@/components/admin/AgentsTable";
@@ -8,9 +9,7 @@ import type { Profile } from "@/lib/supabase/types";
 
 export default async function AdminAgentsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/");

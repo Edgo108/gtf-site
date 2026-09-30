@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { AnnouncementForm } from "@/components/announcements/AnnouncementForm";
 import { uniteCanWrite } from "@/lib/permissions";
 import type { Announcement } from "@/lib/supabase/announcements-types";
@@ -11,9 +12,7 @@ export default async function ModifierAnnoncePage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/");

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { OperationCard } from "@/components/operations/OperationCard";
 import { canAccessOperations } from "@/lib/permissions";
@@ -10,9 +11,7 @@ import { btn } from "@/lib/ui/styles";
 export default async function OperationsPage() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/");

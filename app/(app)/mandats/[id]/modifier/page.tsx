@@ -1,8 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { WantedForm } from "@/components/wanted/WantedForm";
 import { uniteCanWrite } from "@/lib/permissions";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
+import { withSignedPhotos } from "@/lib/wanted/photos";
 
 export default async function ModifierMandatPage({
   params,
@@ -12,9 +14,7 @@ export default async function ModifierMandatPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -26,15 +26,16 @@ export default async function ModifierMandatPage({
     redirect(`/mandats/${id}`);
   }
 
-  const { data: notice } = await supabase
+  const { data: rawNotice } = await supabase
     .from("wanted_notices")
     .select("*")
     .eq("id", id)
     .single<WantedNotice>();
 
-  if (!notice) {
+  if (!rawNotice) {
     notFound();
   }
+  const [notice] = await withSignedPhotos(supabase, [rawNotice]);
 
   return (
     <div className="mx-auto max-w-2xl">

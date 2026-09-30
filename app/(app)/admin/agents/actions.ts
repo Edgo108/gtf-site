@@ -56,7 +56,7 @@ async function requireUniteManager() {
     );
   }
 
-  return user;
+  return { user, isAdmin: profile.role === "admin" };
 }
 
 export async function createAgent(
@@ -145,7 +145,7 @@ export async function updateAgent(formData: FormData): Promise<ActionResult> {
 export async function updateAgentUnite(
   formData: FormData,
 ): Promise<ActionResult> {
-  await requireUniteManager();
+  const { user, isAdmin } = await requireUniteManager();
 
   const id = String(formData.get("id") ?? "");
   const uniteRaw = String(formData.get("unite") ?? "").trim();
@@ -158,6 +158,25 @@ export async function updateAgentUnite(
   }
 
   const admin = createAdminClient();
+
+  // Un manager d'unité (grade) qui n'est pas admin ne peut ni changer sa
+  // propre unité (auto-promotion, ex. SASP → EM) ni celle d'un admin.
+  if (!isAdmin) {
+    if (id === user.id) {
+      return { error: "Vous ne pouvez pas modifier votre propre unité." };
+    }
+    const { data: target } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("id", id)
+      .maybeSingle();
+    if (!target) {
+      return { error: "Compte introuvable." };
+    }
+    if (target.role === "admin") {
+      return { error: "Seul un administrateur peut modifier l'unité d'un administrateur." };
+    }
+  }
   const { error } = await admin
     .from("profiles")
     .update({ unite: uniteRaw })

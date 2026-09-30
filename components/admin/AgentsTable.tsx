@@ -255,7 +255,16 @@ function AgentRow({
         )}
       </td>
       <td data-label="Unité" className="px-4 py-3">
-        <UniteCell profile={profile} editable={canManageUnite} />
+        <UniteCell
+          profile={profile}
+          // Un manager d'unité non-admin ne touche ni à sa propre unité
+          // (pas d'auto-promotion) ni à celle d'un admin. Revérifié côté
+          // serveur dans updateAgentUnite.
+          editable={
+            canManageUnite &&
+            (canManageAgents || (!isSelf && profile.role !== "admin"))
+          }
+        />
       </td>
       <td data-label="Statut" className="px-4 py-3">
         <AgentStatutBadge statut={profile.statut} />

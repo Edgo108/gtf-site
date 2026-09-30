@@ -7,6 +7,7 @@ import {
 import { TrashActions } from "@/components/ui/TrashActions";
 import type { Gang } from "@/lib/supabase/gangs-types";
 import type { SensitiveZone } from "@/lib/supabase/zones-types";
+import { formatParisDateTime } from "@/lib/datetime";
 
 const TYPE_LABELS = { vente: "Vente", qg: "QG" } as const;
 
@@ -44,7 +45,7 @@ export function ZoneTrashTable({
                   className="px-4 py-3 font-mono text-xs text-gtf-text-muted"
                 >
                   {zone.deleted_at
-                    ? new Date(zone.deleted_at).toLocaleString("fr-FR")
+                    ? formatParisDateTime(zone.deleted_at)
                     : "—"}
                 </td>
                 <td className="px-4 py-3">

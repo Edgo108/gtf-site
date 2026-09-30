@@ -47,9 +47,9 @@ import { btn, fieldCompactClass } from "@/lib/ui/styles";
 type InvestigationOption = Pick<Investigation, "id" | "titre">;
 
 const MAP_LAYERS = [
-  { value: "atlas", label: "Atlas", url: "/map/atlas.png" },
-  { value: "satellite", label: "Satellite", url: "/map/satellite.jpg" },
-  { value: "road", label: "Routière", url: "/map/road.jpg" },
+  { value: "atlas", label: "Atlas", url: "/map/atlas.webp" },
+  { value: "satellite", label: "Satellite", url: "/map/satellite.webp" },
+  { value: "road", label: "Routière", url: "/map/road.webp" },
 ] as const;
 
 type MapLayerKey = (typeof MAP_LAYERS)[number]["value"];

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ZoneTrashTable } from "@/components/zones/ZoneTrashTable";
 import { LabMarkerTrashTable } from "@/components/zones/LabMarkerTrashTable";
@@ -9,9 +10,7 @@ import type { LabMarker } from "@/lib/supabase/lab-markers-types";
 
 export default async function CorbeilleZonesPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/");

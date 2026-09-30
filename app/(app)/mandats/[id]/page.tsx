@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { Panel } from "@/components/ui/Panel";
 import { WantedPhoto } from "@/components/wanted/WantedPhoto";
 import { DangerBadge } from "@/components/wanted/DangerBadge";
@@ -10,6 +11,7 @@ import { DeleteWantedButton } from "@/components/wanted/DeleteWantedButton";
 import { normalizeName, parseSuspectNames } from "@/lib/investigations/suspects";
 import { uniteCanWrite } from "@/lib/permissions";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
+import { withSignedPhotos } from "@/lib/wanted/photos";
 import { btn } from "@/lib/ui/styles";
 
 export default async function MandatDetailPage({
@@ -20,9 +22,7 @@ export default async function MandatDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -31,15 +31,16 @@ export default async function MandatDetailPage({
     .single();
   const canWrite = uniteCanWrite("mandats", profile ?? {});
 
-  const { data: notice } = await supabase
+  const { data: rawNotice } = await supabase
     .from("wanted_notices")
     .select("*")
     .eq("id", id)
     .single<WantedNotice>();
 
-  if (!notice) {
+  if (!rawNotice) {
     notFound();
   }
+  const [notice] = await withSignedPhotos(supabase, [rawNotice]);
 
   let organisationNom: string | null = null;
   if (notice.organisation_gang_id) {

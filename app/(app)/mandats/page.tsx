@@ -1,10 +1,12 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { WantedCard } from "@/components/wanted/WantedCard";
 import { FilterBar } from "@/components/wanted/FilterBar";
 import { uniteCanWrite } from "@/lib/permissions";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
+import { withSignedPhotos } from "@/lib/wanted/photos";
 import { btn } from "@/lib/ui/styles";
 
 export default async function MandatsPage({
@@ -15,9 +17,7 @@ export default async function MandatsPage({
   const { statut, niveau } = await searchParams;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -49,7 +49,10 @@ export default async function MandatsPage({
     query = query.eq("niveau_dangerosite", niveau);
   }
 
-  const { data: notices, error } = await query.returns<WantedNotice[]>();
+  const { data: rawNotices, error } = await query.returns<WantedNotice[]>();
+  const notices = rawNotices
+    ? await withSignedPhotos(supabase, rawNotices)
+    : rawNotices;
   if (error) {
     throw new Error("Chargement des mandats impossible.");
   }

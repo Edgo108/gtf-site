@@ -38,6 +38,10 @@ export function WantedPhoto({
         alt={alt}
         fill
         sizes="(max-width: 640px) 50vw, 300px"
+        // URL signée (bucket privé) : jeton différent à chaque rendu,
+        // l'optimiseur de Next ne pourrait pas la mettre en cache. Les
+        // photos sont déjà réduites à l'envoi (WantedForm).
+        unoptimized
         className="object-cover"
       />
     </div>

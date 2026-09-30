@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatNumero } from "@/lib/supabase/archives-types";
-import { formatParisDateTime } from "@/lib/archives/datetime";
+import { formatParisDateTime } from "@/lib/datetime";
 
 export type ArchiveListRow = {
   id: string;

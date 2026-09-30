@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { InvestigationCard } from "@/components/investigations/InvestigationCard";
 import { SearchFilterBar } from "@/components/investigations/SearchFilterBar";
 import { uniteCanWrite } from "@/lib/permissions";
@@ -15,9 +16,7 @@ export default async function EnquetesPage({
   const { q, statut } = await searchParams;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")

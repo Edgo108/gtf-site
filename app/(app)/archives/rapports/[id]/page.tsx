@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { getPseudoMap } from "@/lib/archives/agents";
-import { formatParisDateTime } from "@/lib/archives/datetime";
+import { formatParisDateTime } from "@/lib/datetime";
 import { Panel } from "@/components/ui/Panel";
 import { ArchiveField, EmptyValue } from "@/components/archives/ArchiveField";
 import { DeleteRapportButton } from "@/components/archives/DeleteArchiveButtons";
@@ -18,9 +19,7 @@ export default async function RapportDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")

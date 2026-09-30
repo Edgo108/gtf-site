@@ -7,6 +7,7 @@ import {
 import { CategorieBadge } from "@/components/gangs/CategorieBadge";
 import { TrashActions } from "@/components/ui/TrashActions";
 import type { Gang } from "@/lib/supabase/gangs-types";
+import { formatParisDateTime } from "@/lib/datetime";
 
 export function GangTrashTable({ gangs }: { gangs: Gang[] }) {
   return (
@@ -37,7 +38,7 @@ export function GangTrashTable({ gangs }: { gangs: Gang[] }) {
                 className="px-4 py-3 font-mono text-xs text-gtf-text-muted"
               >
                 {gang.deleted_at
-                  ? new Date(gang.deleted_at).toLocaleString("fr-FR")
+                  ? formatParisDateTime(gang.deleted_at)
                   : "—"}
               </td>
               <td className="px-4 py-3">
@@ -47,7 +48,7 @@ export function GangTrashTable({ gangs }: { gangs: Gang[] }) {
                   destroy={permanentlyDeleteGang}
                   restoreSuccess="Fiche B.D.D restaurée"
                   destroySuccess="Fiche B.D.D supprimée définitivement"
-                  destroyConfirm={`Supprimer définitivement "${gang.nom}" ? Cette action est irréversible.`}
+                  destroyConfirm={`Supprimer définitivement "${gang.nom}" ? Ses membres et ses liens avec les opérations seront aussi supprimés. Cette action est irréversible.`}
                 />
               </td>
             </tr>

@@ -40,6 +40,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { btn, fieldCompactClass } from "@/lib/ui/styles";
 import { AgentStatutBadge, CategorieIcon } from "./DispatchBadges";
+import { formatParisTime } from "@/lib/datetime";
 
 // Au plus un signal d'activité du dispatcheur par minute.
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
@@ -296,10 +297,7 @@ export function DispatchBoard({
                   {isDispatcher ? "Vous êtes le dispatcheur" : dispatcher.pseudo}
                   <span className="ml-2 font-mono text-xs text-gtf-text-muted">
                     depuis{" "}
-                    {new Date(dispatcher.taken_at).toLocaleTimeString("fr-FR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {formatParisTime(dispatcher.taken_at)}
                   </span>
                 </span>
               ) : (

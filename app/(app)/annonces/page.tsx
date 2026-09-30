@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { AnnouncementCard } from "@/components/announcements/AnnouncementCard";
 import { canAuthorAnnouncements, uniteCanWrite } from "@/lib/permissions";
 import type { Announcement } from "@/lib/supabase/announcements-types";
@@ -7,9 +8,7 @@ import { btn } from "@/lib/ui/styles";
 
 export default async function AnnoncesPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")

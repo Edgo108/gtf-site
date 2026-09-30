@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { Panel } from "@/components/ui/Panel";
 import { StatutBadge } from "@/components/investigations/StatutBadge";
 import { DeleteInvestigationButton } from "@/components/investigations/DeleteInvestigationButton";
@@ -15,6 +16,7 @@ import type {
 } from "@/lib/supabase/investigations-types";
 import type { LabMarker } from "@/lib/supabase/lab-markers-types";
 import { btn } from "@/lib/ui/styles";
+import { formatParisDateTime } from "@/lib/datetime";
 
 export default async function EnqueteDetailPage({
   params,
@@ -24,9 +26,7 @@ export default async function EnqueteDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -172,7 +172,7 @@ export default async function EnqueteDetailPage({
                 <p className="text-sm">{entry.resume}</p>
                 <p className="mt-0.5 font-mono text-xs text-gtf-text-muted">
                   {entry.agent_pseudo} ·{" "}
-                  {new Date(entry.created_at).toLocaleString("fr-FR")}
+                  {formatParisDateTime(entry.created_at)}
                 </p>
               </li>
             ))}

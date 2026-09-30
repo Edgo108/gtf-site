@@ -8,6 +8,7 @@ import { LabCategorieBadge, LabStatutBadge } from "@/components/zones/LabBadges"
 import { TrashActions } from "@/components/ui/TrashActions";
 import type { Gang } from "@/lib/supabase/gangs-types";
 import type { LabMarker } from "@/lib/supabase/lab-markers-types";
+import { formatParisDateTime } from "@/lib/datetime";
 
 export function LabMarkerTrashTable({
   markers,
@@ -52,7 +53,7 @@ export function LabMarkerTrashTable({
                   className="px-4 py-3 font-mono text-xs text-gtf-text-muted"
                 >
                   {marker.deleted_at
-                    ? new Date(marker.deleted_at).toLocaleString("fr-FR")
+                    ? formatParisDateTime(marker.deleted_at)
                     : "—"}
                 </td>
                 <td className="px-4 py-3">

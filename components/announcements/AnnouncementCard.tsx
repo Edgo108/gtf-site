@@ -9,6 +9,7 @@ import {
 import { ActionButton } from "@/components/ui/ActionButton";
 import { BADGE_TONES, badgeBase, btn } from "@/lib/ui/styles";
 import type { Announcement } from "@/lib/supabase/announcements-types";
+import { formatParisDateTime } from "@/lib/datetime";
 
 export function AnnouncementCard({
   announcement,
@@ -53,7 +54,7 @@ export function AnnouncementCard({
           </h2>
         </div>
         <span className="shrink-0 font-mono text-xs text-gtf-text-muted">
-          {new Date(announcement.created_at).toLocaleString("fr-FR")}
+          {formatParisDateTime(announcement.created_at)}
         </span>
       </div>
 

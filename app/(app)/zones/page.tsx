@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { MapLoader } from "@/components/zones/MapLoader";
 import { uniteCanWrite } from "@/lib/permissions";
 import { btn } from "@/lib/ui/styles";
@@ -11,9 +12,7 @@ export default async function ZonesPage({
 }) {
   const { highlight_gang: highlightGangId } = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")

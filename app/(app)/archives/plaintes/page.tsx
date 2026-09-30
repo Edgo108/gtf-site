@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { getPseudoMap } from "@/lib/archives/agents";
 import { ArchiveListTable } from "@/components/archives/ArchiveListTable";
 import type { Plainte } from "@/lib/supabase/archives-types";
@@ -7,9 +8,7 @@ import { btn } from "@/lib/ui/styles";
 
 export default async function PlaintesPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")

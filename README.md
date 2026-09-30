@@ -78,10 +78,15 @@ clair (fond beige, logo en filigrane).
 Déposez vos 3 images (mêmes dimensions, mêmes cadrage) dans :
 
 ```
-public/map/atlas.png
-public/map/satellite.jpg
-public/map/road.jpg
+public/map/atlas.webp
+public/map/satellite.webp
+public/map/road.webp
 ```
+
+Utilisez du WebP compressé, pas du PNG/JPEG brut : à 8192 px de côté, le
+PNG d'origine de l'atlas pesait 20 Mo contre 1,2 Mo en WebP qualité 80,
+sans perte de définition visible. Conversion avec `sharp` (déjà installé
+via Next) : `sharp(src, { limitInputPixels: false }).webp({ quality: 80 })`.
 
 Tant qu'elles n'y sont pas, la carte affiche un fond vide (404 sur
 l'image) — le reste de l'interface (dessin, verrouillage, historique)

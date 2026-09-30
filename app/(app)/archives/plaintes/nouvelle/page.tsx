@@ -1,13 +1,10 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { getAgentOptions } from "@/lib/archives/agents";
-import { nowParisInputValue } from "@/lib/archives/datetime";
+import { nowParisInputValue } from "@/lib/datetime";
 import { PlainteForm } from "@/components/archives/PlainteForm";
 
 export default async function NouvellePlaintePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const agents = await getAgentOptions();
 
   return (

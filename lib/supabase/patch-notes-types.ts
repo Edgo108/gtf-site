@@ -1,3 +1,5 @@
+import { todayParisISODate } from "@/lib/datetime";
+
 // Journal des mises à jour du site (« Patch notes »).
 
 export type PatchNoteCategorie = "nouveaute" | "correction" | "amelioration";
@@ -53,5 +55,5 @@ export function formatPatchDate(date: string): string {
 // Date du jour au format "YYYY-MM-DD" (à appeler côté serveur — jamais
 // dans le corps de rendu d'un composant client, cf. react-hooks/purity).
 export function todayISODate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayParisISODate();
 }

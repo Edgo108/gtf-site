@@ -13,6 +13,7 @@ import type {
 } from "@/lib/supabase/lab-markers-types";
 import { BADGE_TONES, badgeBase, btn } from "@/lib/ui/styles";
 import { Spinner } from "@/components/ui/Spinner";
+import { formatParisDateTime } from "@/lib/datetime";
 
 export function LabMarkerDetailModal({
   marker,
@@ -193,7 +194,7 @@ export function LabMarkerDetailModal({
                   <p className="text-sm">{entry.resume}</p>
                   <p className="mt-0.5 font-mono text-xs text-gtf-text-muted">
                     {entry.agent_pseudo} ·{" "}
-                    {new Date(entry.created_at).toLocaleString("fr-FR")}
+                    {formatParisDateTime(entry.created_at)}
                   </p>
                 </li>
               ))}

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { GangCard } from "@/components/gangs/GangCard";
 import { GangFilterBar } from "@/components/gangs/GangFilterBar";
 import { uniteCanWrite } from "@/lib/permissions";
@@ -15,9 +16,7 @@ export default async function GangsPage({
   const { q, niveau, categorie } = await searchParams;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")

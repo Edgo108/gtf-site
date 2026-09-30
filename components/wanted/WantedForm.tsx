@@ -11,6 +11,7 @@ import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
 import type { Gang, GangMember } from "@/lib/supabase/gangs-types";
 import { FormFooter } from "@/components/ui/FormFooter";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
+import { resizeWantedPhoto } from "@/lib/wanted/resize-photo";
 import { useToast } from "@/components/ui/ToastProvider";
 import { fieldClass, labelClass } from "@/lib/ui/styles";
 
@@ -103,6 +104,10 @@ export function WantedForm({ notice }: { notice?: WantedNotice }) {
     }
 
     startTransition(async () => {
+      const photo = formData.get("photo");
+      if (photo instanceof File && photo.size > 0) {
+        formData.set("photo", await resizeWantedPhoto(photo));
+      }
       const action = notice ? updateWantedNotice : createWantedNotice;
       const result = await run(() => action(formData), {
         success: notice ? "Mandat de recherche mis à jour" : "Mandat de recherche créé",

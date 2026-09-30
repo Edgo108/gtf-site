@@ -1,16 +1,15 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPseudoMap } from "@/lib/archives/agents";
-import { formatParisDateTime } from "@/lib/archives/datetime";
+import { formatParisDateTime } from "@/lib/datetime";
 import { ArchiveTrashTable } from "@/components/archives/ArchiveTrashTable";
 import type { Plainte, Rapport } from "@/lib/supabase/archives-types";
 
 export default async function CorbeilleArchivesPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/");

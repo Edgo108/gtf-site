@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { Panel } from "@/components/ui/Panel";
 import { StatutBadge } from "@/components/investigations/StatutBadge";
 import { WantedMiniCard } from "@/components/wanted/WantedMiniCard";
@@ -12,7 +13,9 @@ import {
 import type { Profile } from "@/lib/supabase/types";
 import type { Investigation } from "@/lib/supabase/investigations-types";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
+import { withSignedPhotos } from "@/lib/wanted/photos";
 import type { Announcement } from "@/lib/supabase/announcements-types";
+import { formatParisDateTime } from "@/lib/datetime";
 
 type RecentInvestigation = Pick<
   Investigation,
@@ -23,9 +26,7 @@ const READ_ANNOUNCEMENTS_LIMIT = 5;
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -99,7 +100,10 @@ export default async function DashboardPage() {
   const enCoursCount = enCoursResult.count ?? 0;
   const totalCount = totalResult.count ?? 0;
   const recentInvestigations = recentInvestigationsResult.data ?? [];
-  const activeWanted = activeWantedResult.data ?? [];
+  const activeWanted = await withSignedPhotos(
+    supabase,
+    activeWantedResult.data ?? [],
+  );
   const announcements = announcementsResult.data ?? [];
   const recentPatchNotes = recentPatchNotesResult.data ?? [];
 
@@ -152,9 +156,7 @@ export default async function DashboardPage() {
                     <span className="flex shrink-0 items-center gap-3">
                       <StatutBadge statut={investigation.statut} />
                       <span className="font-mono text-xs text-gtf-text-muted">
-                        {new Date(investigation.updated_at).toLocaleString(
-                          "fr-FR",
-                        )}
+                        {formatParisDateTime(investigation.updated_at)}
                       </span>
                     </span>
                   </Link>

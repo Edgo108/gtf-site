@@ -11,6 +11,7 @@ import type {
 } from "@/lib/supabase/zones-types";
 import { BADGE_TONES, badgeBase, btn } from "@/lib/ui/styles";
 import { Spinner } from "@/components/ui/Spinner";
+import { formatParisDateTime } from "@/lib/datetime";
 
 const TYPE_LABELS = { vente: "Vente", qg: "QG" } as const;
 
@@ -176,7 +177,7 @@ export function ZoneDetailModal({
                   <p className="text-sm">{entry.resume}</p>
                   <p className="mt-0.5 font-mono text-xs text-gtf-text-muted">
                     {entry.agent_pseudo} ·{" "}
-                    {new Date(entry.created_at).toLocaleString("fr-FR")}
+                    {formatParisDateTime(entry.created_at)}
                   </p>
                 </li>
               ))}

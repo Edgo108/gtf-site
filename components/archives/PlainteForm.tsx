@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPlainte, updatePlainte } from "@/app/(app)/archives/actions";
 import type { AgentOption, Plainte } from "@/lib/supabase/archives-types";
-import { toParisInputValue } from "@/lib/archives/datetime";
+import { toParisInputValue } from "@/lib/datetime";
 import { FormFooter } from "@/components/ui/FormFooter";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { fieldClass, labelClass } from "@/lib/ui/styles";

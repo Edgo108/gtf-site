@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createRapport, updateRapport } from "@/app/(app)/archives/actions";
 import type { AgentOption, Rapport } from "@/lib/supabase/archives-types";
-import { toParisInputValue } from "@/lib/archives/datetime";
+import { toParisInputValue } from "@/lib/datetime";
 import { NameSuggestField } from "@/components/ui/NameSuggestField";
 import { useNameSuggestions } from "@/lib/suggestions/use-name-suggestions";
 import { FormFooter } from "@/components/ui/FormFooter";

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { PatchNoteCard } from "@/components/patch-notes/PatchNoteCard";
 import { PatchNoteFilterBar } from "@/components/patch-notes/PatchNoteFilterBar";
 import {
@@ -17,9 +18,7 @@ export default async function PatchNotesPage({
   const { categorie } = await searchParams;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")

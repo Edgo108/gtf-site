@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { Panel } from "@/components/ui/Panel";
 import { AgentStatutBadge } from "@/components/admin/AgentStatutBadge";
 import { ChangePasswordForm } from "@/components/auth/ChangePasswordForm";
@@ -8,9 +9,7 @@ import type { Profile } from "@/lib/supabase/types";
 
 export default async function ProfilPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("profiles")

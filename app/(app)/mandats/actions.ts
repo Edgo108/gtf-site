@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { uniteCanWrite } from "@/lib/permissions";
 import { normalizeName } from "@/lib/investigations/suspects";
+import { WANTED_PHOTOS_BUCKET, wantedPhotoPath } from "@/lib/wanted/photos";
 import type {
   NiveauDangerosite,
   WantedStatut,
@@ -26,7 +27,7 @@ const ALLOWED_TYPES: Record<string, string> = {
   "image/webp": "webp",
 };
 
-const BUCKET = "wanted-photos";
+const BUCKET = WANTED_PHOTOS_BUCKET;
 
 async function requireActiveUser() {
   const supabase = await createClient();
@@ -45,12 +46,6 @@ async function requireActiveUser() {
     .single();
 
   return { supabase, user, profile: profile ?? {} };
-}
-
-function extractStoragePath(url: string): string | null {
-  const marker = `/${BUCKET}/`;
-  const index = url.indexOf(marker);
-  return index === -1 ? null : url.slice(index + marker.length);
 }
 
 async function uploadWantedPhoto(
@@ -75,8 +70,9 @@ async function uploadWantedPhoto(
     return { error: "Échec de l'upload de la photo." };
   }
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return { url: data.publicUrl };
+  // Bucket privé : on enregistre le chemin, l'URL d'affichage (signée)
+  // est générée à chaque rendu (lib/wanted/photos.ts).
+  return { url: path };
 }
 
 // Correspondance EXACTE (nom + prénom, insensible casse/accents/espaces
@@ -215,7 +211,7 @@ export async function updateWantedNotice(
     if (uploaded.error) return { error: uploaded.error };
 
     if (existing.photo_url) {
-      const oldPath = extractStoragePath(existing.photo_url);
+      const oldPath = wantedPhotoPath(existing.photo_url);
       if (oldPath) {
         await supabase.storage.from(BUCKET).remove([oldPath]);
       }
@@ -299,7 +295,7 @@ export async function deleteWantedNotice(
   }
 
   if (existing?.photo_url) {
-    const path = extractStoragePath(existing.photo_url);
+    const path = wantedPhotoPath(existing.photo_url);
     if (path) {
       await supabase.storage.from(BUCKET).remove([path]);
     }

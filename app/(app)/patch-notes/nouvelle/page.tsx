@@ -1,13 +1,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { PatchNoteForm } from "@/components/patch-notes/PatchNoteForm";
 import { todayISODate } from "@/lib/supabase/patch-notes-types";
 
 export default async function NouvellePatchNotePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/");

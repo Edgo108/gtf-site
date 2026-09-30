@@ -1,13 +1,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { AnnouncementForm } from "@/components/announcements/AnnouncementForm";
 import { canAuthorAnnouncements, uniteCanWrite } from "@/lib/permissions";
 
 export default async function NouvelleAnnoncePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/");

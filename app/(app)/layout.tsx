@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
 import { AppHeader, type NavLink } from "@/components/layout/AppHeader";
 import { canAccessOperations, canManageUnite } from "@/lib/permissions";
 import type { Profile } from "@/lib/supabase/types";
@@ -11,39 +12,41 @@ export default async function AppLayout({
   children: ReactNode;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("pseudo, role, grade, unite")
-    .eq("id", user.id)
-    .single<Pick<Profile, "pseudo" | "role" | "grade" | "unite">>();
+  // Requêtes indépendantes lancées en parallèle (un seul aller-retour
+  // au lieu de 5 à la suite). Badge « Annonces » = nombre d'annonces −
+  // nombre d'annonces lues par l'agent (les lectures sont supprimées en
+  // cascade avec leur annonce), en simples comptages sans rapatrier les
+  // lignes.
+  const [
+    { data: profile },
+    { count: announcementCount },
+    { count: readCount },
+    { data: wantedView },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("pseudo, role, grade, unite")
+      .eq("id", user.id)
+      .single<Pick<Profile, "pseudo" | "role" | "grade" | "unite">>(),
+    supabase.from("announcements").select("id", { count: "exact", head: true }),
+    supabase
+      .from("announcement_reads")
+      .select("announcement_id", { count: "exact", head: true })
+      .eq("user_id", user.id),
+    supabase
+      .from("wanted_notice_views")
+      .select("last_seen_at")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+  ]);
+  const unreadCount = Math.max(0, (announcementCount ?? 0) - (readCount ?? 0));
 
-  const { data: allAnnouncements } = await supabase
-    .from("announcements")
-    .select("id");
-  const { data: readAnnouncements } = await supabase
-    .from("announcement_reads")
-    .select("announcement_id")
-    .eq("user_id", user.id);
-  const readIds = new Set(
-    (readAnnouncements ?? []).map((r) => r.announcement_id),
-  );
-  const unreadCount = (allAnnouncements ?? []).filter(
-    (a) => !readIds.has(a.id),
-  ).length;
-
-  const { data: wantedView } = await supabase
-    .from("wanted_notice_views")
-    .select("last_seen_at")
-    .eq("user_id", user.id)
-    .maybeSingle();
   const wantedLastSeen = wantedView?.last_seen_at ?? "1970-01-01T00:00:00Z";
   const { count: newMandatsCount } = await supabase
     .from("wanted_notices")
