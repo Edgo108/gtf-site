@@ -1,30 +1,21 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth/current-user";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdminPage } from "@/lib/auth/require-page";
 import { getPseudoMap } from "@/lib/archives/agents";
-import { formatParisDateTime } from "@/lib/datetime";
-import { ArchiveTrashTable } from "@/components/archives/ArchiveTrashTable";
-import type { Plainte, Rapport } from "@/lib/supabase/archives-types";
+import { TrashTable } from "@/components/ui/TrashTable";
+import {
+  permanentlyDeletePlainte,
+  permanentlyDeleteRapport,
+  restorePlainte,
+  restoreRapport,
+} from "./actions";
+import {
+  formatNumero,
+  type Plainte,
+  type Rapport,
+} from "@/lib/supabase/archives-types";
 
 export default async function CorbeilleArchivesPage() {
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  // Défense en profondeur : le proxy bloque déjà les non-admins sur /admin/*.
-  if (profile?.role !== "admin") {
-    redirect("/dashboard");
-  }
+  await requireAdminPage();
 
   const admin = createAdminClient();
   const [{ data: rapports }, { data: plaintes }] = await Promise.all([
@@ -34,10 +25,7 @@ export default async function CorbeilleArchivesPage() {
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false })
       .returns<
-        Pick<
-          Rapport,
-          "id" | "numero" | "agent_redacteur_id" | "nom_suspect" | "deleted_at"
-        >[]
+        Pick<Rapport, "id" | "numero" | "agent_redacteur_id" | "nom_suspect" | "deleted_at">[]
       >(),
     admin
       .from("plaintes")
@@ -45,10 +33,7 @@ export default async function CorbeilleArchivesPage() {
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false })
       .returns<
-        Pick<
-          Plainte,
-          "id" | "numero" | "agent_redacteur_id" | "nom_victime" | "deleted_at"
-        >[]
+        Pick<Plainte, "id" | "numero" | "agent_redacteur_id" | "nom_victime" | "deleted_at">[]
       >(),
   ]);
 
@@ -56,8 +41,10 @@ export default async function CorbeilleArchivesPage() {
     ...(rapports ?? []).map((r) => r.agent_redacteur_id),
     ...(plaintes ?? []).map((p) => p.agent_redacteur_id),
   ]);
-  const pseudo = (agentId: string) =>
-    pseudoById.get(agentId) ?? "Agent inconnu";
+  const pseudo = (agentId: string) => pseudoById.get(agentId) ?? "Agent inconnu";
+  const numero = (n: number) => (
+    <span className="font-mono">#{formatNumero(n)}</span>
+  );
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -69,15 +56,19 @@ export default async function CorbeilleArchivesPage() {
         Rapports — {rapports?.length ?? 0} supprimé(s)
       </h2>
       <div className="mt-3">
-        <ArchiveTrashTable
-          kind="rapport"
+        <TrashTable
+          columns={["N°", "Agent rédacteur", "Suspect"]}
           rows={(rapports ?? []).map((r) => ({
             id: r.id,
-            numero: r.numero,
-            agentPseudo: pseudo(r.agent_redacteur_id),
-            personne: r.nom_suspect,
-            deletedAt: formatParisDateTime(r.deleted_at),
+            name: `#${formatNumero(r.numero)}`,
+            deletedAt: r.deleted_at,
+            cells: [numero(r.numero), pseudo(r.agent_redacteur_id), r.nom_suspect || "—"],
           }))}
+          restore={restoreRapport}
+          destroy={permanentlyDeleteRapport}
+          restoreSuccess="Rapport restauré"
+          destroySuccess="Rapport supprimé définitivement"
+          destroyConfirm="Supprimer définitivement le rapport"
         />
       </div>
 
@@ -85,15 +76,20 @@ export default async function CorbeilleArchivesPage() {
         Plaintes — {plaintes?.length ?? 0} supprimée(s)
       </h2>
       <div className="mt-3">
-        <ArchiveTrashTable
-          kind="plainte"
+        <TrashTable
+          columns={["N°", "Agent rédacteur", "Victime"]}
+          deletedLabel="Supprimée le"
           rows={(plaintes ?? []).map((p) => ({
             id: p.id,
-            numero: p.numero,
-            agentPseudo: pseudo(p.agent_redacteur_id),
-            personne: p.nom_victime,
-            deletedAt: formatParisDateTime(p.deleted_at),
+            name: `#${formatNumero(p.numero)}`,
+            deletedAt: p.deleted_at,
+            cells: [numero(p.numero), pseudo(p.agent_redacteur_id), p.nom_victime || "—"],
           }))}
+          restore={restorePlainte}
+          destroy={permanentlyDeletePlainte}
+          restoreSuccess="Plainte restaurée"
+          destroySuccess="Plainte supprimée définitivement"
+          destroyConfirm="Supprimer définitivement la plainte"
         />
       </div>
     </div>

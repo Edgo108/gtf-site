@@ -61,3 +61,9 @@ export type GangMember = {
   created_at: string;
   updated_at: string;
 };
+
+// Zones et labos référencent toujours une organisation existante (la base
+// refuse sa suppression définitive tant qu'ils existent, cf.
+// supabase/gangs_delete_restrict.sql). Si la fiche n'est pas lisible,
+// c'est donc qu'elle est dans la corbeille de la B.D.D.
+export const TRASHED_ORGANISATION_LABEL = "Organisation en corbeille";

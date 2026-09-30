@@ -45,6 +45,7 @@ export default async function OperationsPage() {
   const { data: operations } = await admin
     .from("operations")
     .select("id, titre, statut, lead_id")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   const leadIds = [...new Set((operations ?? []).map((o) => o.lead_id))];
@@ -66,9 +67,16 @@ export default async function OperationsPage() {
         <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
           Opérations
         </h1>
-        <Link href="/operations/nouvelle" className={btn("primary", "md")}>
-          Nouvelle opération
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          {profile?.role === "admin" && (
+            <Link href="/admin/operations/corbeille" className={btn("secondary", "md")}>
+              Corbeille
+            </Link>
+          )}
+          <Link href="/operations/nouvelle" className={btn("primary", "md")}>
+            Nouvelle opération
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

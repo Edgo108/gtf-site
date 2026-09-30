@@ -6,7 +6,8 @@ import { getPseudoMap } from "@/lib/archives/agents";
 import { formatParisDateTime } from "@/lib/datetime";
 import { Panel } from "@/components/ui/Panel";
 import { ArchiveField, EmptyValue } from "@/components/archives/ArchiveField";
-import { DeletePlainteButton } from "@/components/archives/DeleteArchiveButtons";
+import { TrashButton } from "@/components/ui/TrashButton";
+import { softDeletePlainte } from "@/app/(app)/archives/actions";
 import { Signature } from "@/components/archives/Signature";
 import { formatNumero, type Plainte } from "@/lib/supabase/archives-types";
 import { btn } from "@/lib/ui/styles";
@@ -72,7 +73,14 @@ export default async function PlainteDetailPage({
           >
             Modifier
           </Link>
-          {canDelete && <DeletePlainteButton id={plainte.id} />}
+          {canDelete && (
+            <TrashButton
+              action={softDeletePlainte}
+              id={plainte.id}
+              what="cette plainte"
+              success="Plainte déplacée vers la corbeille"
+            />
+          )}
         </div>
       </div>
 

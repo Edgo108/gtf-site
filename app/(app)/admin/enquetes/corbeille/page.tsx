@@ -1,36 +1,24 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth/current-user";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { TrashTable } from "@/components/investigations/TrashTable";
+import { requireAdminPage } from "@/lib/auth/require-page";
+import { TrashTable } from "@/components/ui/TrashTable";
+import {
+  permanentlyDeleteInvestigation,
+  restoreInvestigation,
+} from "./actions";
 import type { Investigation } from "@/lib/supabase/investigations-types";
 
 export default async function CorbeilleEnquetesPage() {
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  // Défense en profondeur : le proxy bloque déjà les non-admins sur /admin/*.
-  if (profile?.role !== "admin") {
-    redirect("/dashboard");
-  }
+  await requireAdminPage();
 
   const admin = createAdminClient();
   const { data: investigations } = await admin
     .from("investigations")
-    .select("*")
+    .select("id, titre, agent_responsable, deleted_at")
     .not("deleted_at", "is", null)
     .order("deleted_at", { ascending: false })
-    .returns<Investigation[]>();
+    .returns<Pick<Investigation, "id" | "titre" | "agent_responsable" | "deleted_at">[]>();
+
+  const rows = investigations ?? [];
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -38,11 +26,25 @@ export default async function CorbeilleEnquetesPage() {
         Corbeille — Enquêtes
       </h1>
       <p className="mt-1 font-mono text-sm text-gtf-text-muted">
-        {investigations?.length ?? 0} enquête(s) supprimée(s)
+        {rows.length} enquête(s) supprimée(s)
       </p>
 
       <div className="mt-6">
-        <TrashTable investigations={investigations ?? []} />
+        <TrashTable
+          columns={["Titre", "Agent responsable"]}
+          deletedLabel="Supprimée le"
+          rows={rows.map((i) => ({
+            id: i.id,
+            name: i.titre,
+            deletedAt: i.deleted_at,
+            cells: [i.titre, i.agent_responsable || "—"],
+          }))}
+          restore={restoreInvestigation}
+          destroy={permanentlyDeleteInvestigation}
+          restoreSuccess="Enquête restaurée"
+          destroySuccess="Enquête supprimée définitivement"
+          destroyConfirm="Supprimer définitivement l'enquête"
+        />
       </div>
     </div>
   );

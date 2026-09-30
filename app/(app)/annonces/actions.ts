@@ -7,6 +7,8 @@ import { requireActiveUser } from "@/lib/auth/require";
 import { canAuthorAnnouncements, uniteCanWrite } from "@/lib/permissions";
 import type { AnnouncementPriorite } from "@/lib/supabase/announcements-types";
 import { readExpectedVersion, STALE_EDIT_ERROR } from "@/lib/concurrency";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { checkTextLimits } from "@/lib/limits";
 
 type ActionResult = { error?: string };
 
@@ -50,6 +52,8 @@ export async function createAnnouncement(
 
   const titre = String(formData.get("titre") ?? "").trim();
   const message = String(formData.get("message") ?? "").trim();
+  const tooLong = checkTextLimits("announcements", { titre, message });
+  if (tooLong) return { error: tooLong };
   const priorite = readPriorite(formData);
 
   if (!titre) {
@@ -92,6 +96,8 @@ export async function updateAnnouncement(
 
   const titre = String(formData.get("titre") ?? "").trim();
   const message = String(formData.get("message") ?? "").trim();
+  const tooLong = checkTextLimits("announcements", { titre, message });
+  if (tooLong) return { error: tooLong };
   const priorite = readPriorite(formData);
 
   if (!titre) {
@@ -136,7 +142,25 @@ export async function deleteAnnouncement(
     return { error: "Identifiant manquant." };
   }
 
-  const { error } = await supabase.from("announcements").delete().eq("id", id);
+  const { data: announcement } = await supabase
+    .from("announcements")
+    .select("created_by")
+    .eq("id", id)
+    .maybeSingle();
+  if (!announcement) {
+    return { error: "Notification introuvable." };
+  }
+  if (announcement.created_by !== user.id && profile.role !== "admin") {
+    return {
+      error: "Seul l'auteur ou un administrateur peut supprimer cette notification.",
+    };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("announcements")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
 
   if (error) {
     return { error: "Impossible de supprimer la notification." };

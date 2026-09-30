@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { Panel } from "@/components/ui/Panel";
 import { DangerBadge } from "@/components/wanted/DangerBadge";
-import { DeleteGangButton } from "@/components/gangs/DeleteGangButton";
+import { TrashButton } from "@/components/ui/TrashButton";
+import { deleteGang } from "@/app/(app)/gangs/actions";
 import { CategorieBadge } from "@/components/gangs/CategorieBadge";
 import { MembersList } from "@/components/gangs/MembersList";
 import { uniteCanWrite } from "@/lib/permissions";
@@ -99,7 +100,12 @@ export default async function GangDetailPage({
               >
                 Modifier
               </Link>
-              <DeleteGangButton id={gang.id} />
+              <TrashButton
+                action={deleteGang}
+                id={gang.id}
+                what="cette fiche"
+                success="Fiche déplacée vers la corbeille"
+              />
             </>
           )}
         </div>

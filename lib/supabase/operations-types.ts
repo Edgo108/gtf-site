@@ -39,6 +39,8 @@ export type Operation = {
   lead_id: string;
   created_at: string;
   updated_at: string;
+  // Corbeille (null = fiche active), voir supabase/corbeille_sections.sql.
+  deleted_at?: string | null;
 };
 
 // Ligne résumée exposée à tout agent non-DOJ dans la liste (construite

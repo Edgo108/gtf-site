@@ -169,3 +169,34 @@ npm run lint    # vérifie le code avec ESLint
    `SUPABASE_SERVICE_ROLE_KEY` (les mêmes valeurs que dans `.env.local`).
 5. Cliquez sur **Deploy**. Les déploiements suivants se feront
    automatiquement à chaque push sur la branche principale.
+
+## Conventions de code et de base
+
+Le projet a été construit section par section ; les sections anciennes
+(enquêtes, mandats, B.D.D., zones, labos, annonces) ont des tables et des
+types en anglais (`investigations`, `wanted_notices`, `Gang`…), les plus
+récentes en français (`rapports`, `plaintes`, `dispatch_units`…). Les
+tables existantes **ne sont pas renommées** : une migration de ce type
+casserait la production pour un gain purement cosmétique. Pour tout
+nouveau code :
+
+- **Tables et colonnes** : français, `snake_case`, au pluriel pour les
+  tables (`rapports`, `date_redaction`).
+- **Référence à un agent** (`created_by`, `agent_id`…) : toujours vers
+  `public.profiles (id)`, jamais `auth.users` (harmonisé par
+  `supabase/fk_profiles_harmonize.sql`).
+- **Corbeille** : colonne `deleted_at`, policies SELECT/UPDATE filtrées sur
+  `deleted_at is null`, aucune suppression directe pour `authenticated` ;
+  mise à la corbeille / restauration / suppression définitive par le
+  serveur (service_role) après contrôle des droits. Interface commune :
+  `components/ui/TrashButton.tsx` et `components/ui/TrashTable.tsx`.
+- **Server Actions** : contrôle d'accès via `lib/auth/require.ts`
+  (`requireActiveUser` / `requireAdmin`), jamais recopié.
+- **Formulaires d'édition** : contrôle de version (`lib/concurrency.ts`) et
+  longueurs maximales (`lib/limits.ts`, doublées en base par
+  `supabase/text_limits.sql`).
+- **Dates** : toujours via `lib/datetime.ts` (heure de Paris), jamais
+  `toLocaleString()` sans fuseau.
+- **Enquêtes** : ne jamais faire `select("*")` sur `investigations` avec la
+  session d'un agent (colonne `casier_code_acces` protégée) — utiliser
+  `INVESTIGATION_COLUMNS` (`lib/investigations/casier.ts`).

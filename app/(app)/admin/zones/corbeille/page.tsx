@@ -1,51 +1,53 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth/current-user";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ZoneTrashTable } from "@/components/zones/ZoneTrashTable";
-import { LabMarkerTrashTable } from "@/components/zones/LabMarkerTrashTable";
-import type { Gang } from "@/lib/supabase/gangs-types";
+import { requireAdminPage } from "@/lib/auth/require-page";
+import { TrashTable } from "@/components/ui/TrashTable";
+import { LabCategorieBadge, LabStatutBadge } from "@/components/zones/LabBadges";
+import {
+  permanentlyDeleteLabMarker,
+  permanentlyDeleteZone,
+  restoreLabMarker,
+  restoreZone,
+} from "./actions";
 import type { SensitiveZone } from "@/lib/supabase/zones-types";
 import type { LabMarker } from "@/lib/supabase/lab-markers-types";
 
+const TYPE_LABELS: Record<string, string> = {
+  vente: "Vente",
+  qg: "QG",
+  influence: "QG",
+};
+
 export default async function CorbeilleZonesPage() {
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  // Défense en profondeur : le proxy bloque déjà les non-admins sur /admin/*.
-  if (profile?.role !== "admin") {
-    redirect("/dashboard");
-  }
+  await requireAdminPage();
 
   const admin = createAdminClient();
   const [{ data: zones }, { data: labMarkers }, { data: gangs }] =
     await Promise.all([
       admin
         .from("sensitive_zones")
-        .select("*")
+        .select("id, gang_id, type_zone, deleted_at")
         .not("deleted_at", "is", null)
         .order("deleted_at", { ascending: false })
-        .returns<SensitiveZone[]>(),
+        .returns<Pick<SensitiveZone, "id" | "gang_id" | "type_zone" | "deleted_at">[]>(),
       admin
         .from("lab_markers")
-        .select("*")
+        .select("id, organisation_id, categorie, statut, deleted_at")
         .not("deleted_at", "is", null)
         .order("deleted_at", { ascending: false })
-        .returns<LabMarker[]>(),
-      admin.from("gangs").select("*").returns<Gang[]>(),
+        .returns<
+          Pick<LabMarker, "id" | "organisation_id" | "categorie" | "statut" | "deleted_at">[]
+        >(),
+      admin
+        .from("gangs")
+        .select("id, nom, deleted_at")
+        .returns<{ id: string; nom: string; deleted_at: string | null }[]>(),
     ]);
 
-  const gangsById = new Map((gangs ?? []).map((g) => [g.id, g]));
+  // Organisation en corbeille : on le signale plutôt que « inconnue ».
+  const gangLabel = new Map(
+    (gangs ?? []).map((g) => [g.id, g.deleted_at ? `${g.nom} (en corbeille)` : g.nom]),
+  );
+  const orgOf = (id: string) => gangLabel.get(id) ?? "Organisation inconnue";
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -57,16 +59,44 @@ export default async function CorbeilleZonesPage() {
         Zones sensibles — {zones?.length ?? 0} supprimée(s)
       </h2>
       <div className="mt-3">
-        <ZoneTrashTable zones={zones ?? []} gangsById={gangsById} />
+        <TrashTable
+          columns={["Organisation", "Type"]}
+          deletedLabel="Supprimée le"
+          rows={(zones ?? []).map((z) => ({
+            id: z.id,
+            name: `${TYPE_LABELS[z.type_zone] ?? z.type_zone} — ${orgOf(z.gang_id)}`,
+            deletedAt: z.deleted_at,
+            cells: [orgOf(z.gang_id), TYPE_LABELS[z.type_zone] ?? z.type_zone],
+          }))}
+          restore={restoreZone}
+          destroy={permanentlyDeleteZone}
+          restoreSuccess="Zone restaurée"
+          destroySuccess="Zone supprimée définitivement"
+          destroyConfirm="Supprimer définitivement la zone"
+        />
       </div>
 
       <h2 className="mt-8 font-display text-sm font-semibold uppercase tracking-wider text-gtf-text-muted">
         Marqueurs laboratoire — {labMarkers?.length ?? 0} supprimé(s)
       </h2>
       <div className="mt-3">
-        <LabMarkerTrashTable
-          markers={labMarkers ?? []}
-          gangsById={gangsById}
+        <TrashTable
+          columns={["Catégorie", "Statut", "Organisation"]}
+          rows={(labMarkers ?? []).map((m) => ({
+            id: m.id,
+            name: `labo — ${orgOf(m.organisation_id)}`,
+            deletedAt: m.deleted_at,
+            cells: [
+              <LabCategorieBadge key="cat" categorie={m.categorie} />,
+              <LabStatutBadge key="statut" statut={m.statut} />,
+              orgOf(m.organisation_id),
+            ],
+          }))}
+          restore={restoreLabMarker}
+          destroy={permanentlyDeleteLabMarker}
+          restoreSuccess="Marqueur laboratoire restauré"
+          destroySuccess="Marqueur laboratoire supprimé définitivement"
+          destroyConfirm="Supprimer définitivement le marqueur"
         />
       </div>
     </div>

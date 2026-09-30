@@ -4,6 +4,7 @@ import {
   OPERATION_LINK_CONFIG,
   type OperationLinkKind,
 } from "@/lib/supabase/operations-types";
+import { TRASHED_ORGANISATION_LABEL } from "@/lib/supabase/gangs-types";
 
 // Éléments qu'une opération peut lier (enquêtes, mandats, labos, zones,
 // groupes B.D.D.), avec leur libellé d'affichage. Lecture via la session
@@ -28,7 +29,7 @@ type GangJoin = { nom: string } | { nom: string }[] | null;
 
 function gangNom(gangs: GangJoin): string {
   const gang = Array.isArray(gangs) ? gangs[0] : gangs;
-  return gang?.nom ?? "Organisation inconnue";
+  return gang?.nom ?? TRASHED_ORGANISATION_LABEL;
 }
 
 export async function fetchLinkTargets(

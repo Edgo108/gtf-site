@@ -86,8 +86,8 @@ export function AnnouncementCard({
             <ActionButton
               action={deleteAnnouncement}
               fields={{ id: announcement.id }}
-              confirm={`Supprimer la notification « ${announcement.titre} » ?`}
-              success="Annonce supprimée"
+              confirm={`Déplacer la notification « ${announcement.titre} » vers la corbeille ?`}
+              success="Annonce déplacée vers la corbeille"
               variant="danger"
               size="sm"
               onSuccess={() => setDeleted(true)}

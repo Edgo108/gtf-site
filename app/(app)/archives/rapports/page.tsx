@@ -1,12 +1,20 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getPseudoMap } from "@/lib/archives/agents";
 import { ArchiveListTable } from "@/components/archives/ArchiveListTable";
 import type { Rapport } from "@/lib/supabase/archives-types";
 import { btn } from "@/lib/ui/styles";
+import { isOutOfRange, pageRange } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/Pagination";
 
-export default async function RapportsPage() {
+export default async function RapportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page, from, to } = pageRange((await searchParams).page);
   const supabase = await createClient();
   const user = await getCurrentUser();
 
@@ -16,16 +24,22 @@ export default async function RapportsPage() {
     .eq("id", user!.id)
     .single();
 
-  const { data: rapports, error } = await supabase
+  const { data: rapports, error, count } = await supabase
     .from("rapports")
-    .select("id, numero, date_redaction, agent_redacteur_id, nom_suspect")
+    .select("id, numero, date_redaction, agent_redacteur_id, nom_suspect", {
+      count: "exact",
+    })
     .order("numero", { ascending: false })
+    .range(from, to)
     .returns<
       Pick<
         Rapport,
         "id" | "numero" | "date_redaction" | "agent_redacteur_id" | "nom_suspect"
       >[]
     >();
+  if (isOutOfRange(error)) {
+    redirect("/archives/rapports");
+  }
   if (error) {
     throw new Error("Chargement des rapports impossible.");
   }
@@ -61,7 +75,7 @@ export default async function RapportsPage() {
         </div>
       </div>
       <p className="mt-1 font-mono text-sm text-gtf-text-muted">
-        {rapports.length} rapport{rapports.length > 1 ? "s" : ""}
+        {count ?? rapports.length} rapport{(count ?? rapports.length) > 1 ? "s" : ""}
       </p>
 
       <div className="mt-6">
@@ -78,6 +92,8 @@ export default async function RapportsPage() {
           }))}
         />
       </div>
+
+      <Pagination page={page} total={count ?? 0} basePath="/archives/rapports" />
     </div>
   );
 }

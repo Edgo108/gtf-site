@@ -6,7 +6,8 @@ import { getPseudoMap } from "@/lib/archives/agents";
 import { formatParisDateTime } from "@/lib/datetime";
 import { Panel } from "@/components/ui/Panel";
 import { ArchiveField, EmptyValue } from "@/components/archives/ArchiveField";
-import { DeleteRapportButton } from "@/components/archives/DeleteArchiveButtons";
+import { TrashButton } from "@/components/ui/TrashButton";
+import { softDeleteRapport } from "@/app/(app)/archives/actions";
 import { Signature } from "@/components/archives/Signature";
 import { formatNumero, type Rapport } from "@/lib/supabase/archives-types";
 import { btn } from "@/lib/ui/styles";
@@ -73,7 +74,14 @@ export default async function RapportDetailPage({
           >
             Modifier
           </Link>
-          {canDelete && <DeleteRapportButton id={rapport.id} />}
+          {canDelete && (
+            <TrashButton
+              action={softDeleteRapport}
+              id={rapport.id}
+              what="ce rapport"
+              success="Rapport déplacé vers la corbeille"
+            />
+          )}
         </div>
       </div>
 

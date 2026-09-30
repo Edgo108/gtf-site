@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { GangCard } from "@/components/gangs/GangCard";
@@ -7,13 +8,21 @@ import { GangFilterBar } from "@/components/gangs/GangFilterBar";
 import { uniteCanWrite } from "@/lib/permissions";
 import { isGangCategorie, type Gang } from "@/lib/supabase/gangs-types";
 import { btn } from "@/lib/ui/styles";
+import { isOutOfRange, pageRange } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/Pagination";
 
 export default async function GangsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; niveau?: string; categorie?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    niveau?: string;
+    categorie?: string;
+    page?: string;
+  }>;
 }) {
-  const { q, niveau, categorie } = await searchParams;
+  const { q, niveau, categorie, page: pageParam } = await searchParams;
+  const { page, from, to } = pageRange(pageParam);
   const supabase = await createClient();
 
   const user = await getCurrentUser();
@@ -26,7 +35,10 @@ export default async function GangsPage({
 
   const canWrite = uniteCanWrite("gangs", profile ?? {});
 
-  let query = supabase.from("gangs").select("*").order("nom", { ascending: true });
+  let query = supabase
+    .from("gangs")
+    .select("*", { count: "exact" })
+    .order("nom", { ascending: true });
 
   if (niveau) {
     query = query.eq("niveau_menace", niveau);
@@ -39,7 +51,12 @@ export default async function GangsPage({
     query = query.ilike("nom", `%${sanitizedQ}%`);
   }
 
-  const { data: gangs, error } = await query.returns<Gang[]>();
+  const { data: gangs, error, count } = await query
+    .range(from, to)
+    .returns<Gang[]>();
+  if (isOutOfRange(error)) {
+    redirect("/gangs");
+  }
   if (error) {
     throw new Error("Chargement de la B.D.D impossible.");
   }
@@ -84,6 +101,13 @@ export default async function GangsPage({
           </p>
         )}
       </div>
+
+      <Pagination
+        page={page}
+        total={count ?? 0}
+        basePath="/gangs"
+        params={{ q, niveau, categorie }}
+      />
     </div>
   );
 }

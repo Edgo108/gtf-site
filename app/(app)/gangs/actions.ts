@@ -12,6 +12,7 @@ import {
 } from "@/lib/supabase/gangs-types";
 import { requireActiveUser } from "@/lib/auth/require";
 import { readExpectedVersion, STALE_EDIT_ERROR } from "@/lib/concurrency";
+import { checkTextLimits } from "@/lib/limits";
 
 type ActionResult = { error?: string };
 
@@ -75,6 +76,8 @@ export async function createGang(formData: FormData): Promise<ActionResult> {
   if (denied) return denied;
 
   const fields = readGangFields(formData);
+  const tooLong = checkTextLimits("gangs", fields);
+  if (tooLong) return { error: tooLong };
 
   if (!fields.nom) {
     return { error: "Le nom est obligatoire." };
@@ -106,6 +109,8 @@ export async function updateGang(formData: FormData): Promise<ActionResult> {
   }
 
   const fields = readGangFields(formData);
+  const tooLong = checkTextLimits("gangs", fields);
+  if (tooLong) return { error: tooLong };
   if (!fields.nom) {
     return { error: "Le nom est obligatoire." };
   }
@@ -179,6 +184,9 @@ export async function createGangMember(
     return { error: "Champs manquants." };
   }
 
+  const tooLong = checkTextLimits("gang_members", { nom, role });
+  if (tooLong) return { error: tooLong };
+
   const { error } = await supabase
     .from("gang_members")
     .insert({ gang_id, nom, role, statut });
@@ -208,6 +216,9 @@ export async function updateGangMember(
   if (!id || !nom) {
     return { error: "Champs manquants." };
   }
+
+  const tooLong = checkTextLimits("gang_members", { nom, role });
+  if (tooLong) return { error: tooLong };
 
   const { error } = await supabase
     .from("gang_members")

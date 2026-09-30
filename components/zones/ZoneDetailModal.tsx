@@ -12,6 +12,7 @@ import type {
 import { BADGE_TONES, badgeBase, btn } from "@/lib/ui/styles";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatParisDateTime } from "@/lib/datetime";
+import { TRASHED_ORGANISATION_LABEL } from "@/lib/supabase/gangs-types";
 
 const TYPE_LABELS = { vente: "Vente", qg: "QG" } as const;
 
@@ -78,7 +79,7 @@ export function ZoneDetailModal({
             )}
             <div>
               <h2 className="font-display text-xl font-bold uppercase tracking-wide text-gtf-text">
-                {gang ? gang.nom : "Gang inconnu"}
+                {gang ? gang.nom : TRASHED_ORGANISATION_LABEL}
               </h2>
               {gang && (
                 <div className="mt-1 flex items-center gap-2">

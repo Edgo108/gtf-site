@@ -39,6 +39,8 @@ export function SearchFilterBar({ resultCount }: { resultCount: number }) {
 
   function updateParams(next: { q?: string; statut?: string }) {
     const params = new URLSearchParams(searchParams.toString());
+    // Nouveau filtre = retour à la première page.
+    params.delete("page");
 
     if (next.q !== undefined) {
       if (next.q) params.set("q", next.q);

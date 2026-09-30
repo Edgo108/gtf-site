@@ -15,6 +15,8 @@ import {
 } from "@/lib/supabase/operation-drawings-types";
 import { requireActiveUser } from "@/lib/auth/require";
 import { fetchLinkTargets } from "@/lib/operations/link-targets";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { checkTextLimits } from "@/lib/limits";
 
 type ActionResult = { error?: string };
 
@@ -42,6 +44,8 @@ export async function createOperation(
   }
 
   const fields = readFields(formData);
+  const tooLong = checkTextLimits("operations", fields);
+  if (tooLong) return { error: tooLong };
   if (!fields.titre) {
     return { error: "Le titre est obligatoire." };
   }
@@ -75,6 +79,8 @@ export async function updateOperation(
   }
 
   const fields = readFields(formData);
+  const tooLong = checkTextLimits("operations", fields);
+  if (tooLong) return { error: tooLong };
   if (!fields.titre) {
     return { error: "Le titre est obligatoire." };
   }
@@ -108,13 +114,24 @@ export async function deleteOperation(
     return { error: "Identifiant manquant." };
   }
 
-  const { error, count } = await supabase
+  // Visible via la session = admin, lead ou agent en écriture (RLS
+  // operations_select) : mêmes droits que pour la modifier.
+  const { data: visible } = await supabase
     .from("operations")
-    .delete({ count: "exact" })
-    .eq("id", id);
-
-  if (error || !count) {
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!visible) {
     return { error: "Suppression impossible (accès refusé ?)." };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("operations")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) {
+    return { error: "Suppression impossible." };
   }
 
   revalidatePath("/operations");

@@ -16,6 +16,8 @@ import {
   readExpectedVersion,
   STALE_EDIT_ERROR,
 } from "@/lib/concurrency";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { checkTextLimits } from "@/lib/limits";
 
 type ActionResult = { error?: string };
 
@@ -119,6 +121,8 @@ export async function createWantedNotice(
   }
 
   const fields = readFields(formData);
+  const tooLong = checkTextLimits("wanted_notices", fields);
+  if (tooLong) return { error: tooLong };
 
   if (!fields.nom_suspect) {
     return { error: "Le nom du suspect est obligatoire." };
@@ -189,6 +193,8 @@ export async function updateWantedNotice(
   }
 
   const fields = readFields(formData);
+  const tooLong = checkTextLimits("wanted_notices", fields);
+  if (tooLong) return { error: tooLong };
   if (!fields.nom_suspect) {
     return { error: "Le nom du suspect est obligatoire." };
   }
@@ -271,7 +277,7 @@ export async function toggleWantedStatut(
 export async function deleteWantedNotice(
   formData: FormData,
 ): Promise<ActionResult> {
-  const { supabase, profile } = await requireActiveUser();
+  const { profile } = await requireActiveUser();
 
   if (!uniteCanWrite("mandats", profile)) {
     return { error: NO_WRITE_MANDATS };
@@ -282,24 +288,20 @@ export async function deleteWantedNotice(
     return { error: "Identifiant manquant." };
   }
 
-  const { data: existing } = await supabase
+  // Mise à la corbeille (restauration possible par un admin). La photo
+  // est conservée : elle n'est effacée qu'à la suppression définitive.
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .from("wanted_notices")
-    .select("photo_url")
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", id)
-    .single();
-
-  const { error } = await supabase.from("wanted_notices").delete().eq("id", id);
-  if (error) {
+    .is("deleted_at", null)
+    .select("id");
+  if (error || !data || data.length === 0) {
     return { error: "Impossible de supprimer ce mandat." };
   }
 
-  if (existing?.photo_url) {
-    const path = wantedPhotoPath(existing.photo_url);
-    if (path) {
-      await supabase.storage.from(BUCKET).remove([path]);
-    }
-  }
-
   revalidatePath("/mandats");
+  revalidatePath("/dashboard");
   redirect("/mandats");
 }

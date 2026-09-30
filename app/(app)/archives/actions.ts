@@ -7,6 +7,7 @@ import { getPseudoMap } from "@/lib/archives/agents";
 import { parisInputToISO } from "@/lib/datetime";
 import { requireActiveUser } from "@/lib/auth/require";
 import { readExpectedVersion, STALE_EDIT_ERROR } from "@/lib/concurrency";
+import { checkTextLimits } from "@/lib/limits";
 
 type ActionResult = { error?: string };
 
@@ -85,6 +86,8 @@ export async function createRapport(
 
   const parsed = await readRapportFields(formData);
   if ("error" in parsed) return { error: parsed.error };
+  const tooLong = checkTextLimits("rapports", parsed.fields);
+  if (tooLong) return { error: tooLong };
 
   const { data, error } = await supabase
     .from("rapports")
@@ -112,6 +115,8 @@ export async function updateRapport(
 
   const parsed = await readRapportFields(formData);
   if ("error" in parsed) return { error: parsed.error };
+  const tooLong = checkTextLimits("rapports", parsed.fields);
+  if (tooLong) return { error: tooLong };
 
   const expected = readExpectedVersion(formData);
   let update = supabase.from("rapports").update(parsed.fields).eq("id", id);
@@ -219,6 +224,8 @@ export async function createPlainte(
 
   const parsed = await readPlainteFields(formData);
   if ("error" in parsed) return { error: parsed.error };
+  const tooLong = checkTextLimits("plaintes", parsed.fields);
+  if (tooLong) return { error: tooLong };
 
   const { data, error } = await supabase
     .from("plaintes")
@@ -246,6 +253,8 @@ export async function updatePlainte(
 
   const parsed = await readPlainteFields(formData);
   if ("error" in parsed) return { error: parsed.error };
+  const tooLong = checkTextLimits("plaintes", parsed.fields);
+  if (tooLong) return { error: tooLong };
 
   const expected = readExpectedVersion(formData);
   let update = supabase.from("plaintes").update(parsed.fields).eq("id", id);

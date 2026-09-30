@@ -25,6 +25,8 @@ export function FilterBar() {
 
   function update(next: { statut?: string; niveau?: string }) {
     const params = new URLSearchParams(searchParams.toString());
+    // Nouveau filtre = retour à la première page.
+    params.delete("page");
 
     if (next.statut !== undefined) {
       if (next.statut) params.set("statut", next.statut);

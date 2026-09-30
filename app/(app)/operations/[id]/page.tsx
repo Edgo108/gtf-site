@@ -4,12 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Panel } from "@/components/ui/Panel";
-import { ActionButton } from "@/components/ui/ActionButton";
 import { OperationStatutBadge } from "@/components/operations/OperationStatutBadge";
 import { WritersSection, type WriterRow } from "@/components/operations/WritersSection";
 import { LinkSection, type LinkedRow } from "@/components/operations/LinkSection";
 import { PlanningMapLoader } from "@/components/operations/PlanningMapLoader";
 import { deleteOperation } from "@/app/(app)/operations/actions";
+import { TrashButton } from "@/components/ui/TrashButton";
 import type { Operation, OperationLinkKind } from "@/lib/supabase/operations-types";
 import { fetchLinkTargets } from "@/lib/operations/link-targets";
 import { btn } from "@/lib/ui/styles";
@@ -192,16 +192,12 @@ export default async function OperationDetailPage({
           >
             Modifier
           </Link>
-          <ActionButton
+          <TrashButton
             action={deleteOperation}
-            fields={{ id: operation.id }}
-            confirm="Supprimer définitivement cette opération ? Cette action est irréversible."
-            success="Opération supprimée."
-            variant="danger"
-            size="md"
-          >
-            Supprimer
-          </ActionButton>
+            id={operation.id}
+            what="cette opération"
+            success="Opération déplacée vers la corbeille"
+          />
         </div>
       </div>
 

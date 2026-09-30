@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { InvestigationCard } from "@/components/investigations/InvestigationCard";
@@ -8,13 +9,16 @@ import { uniteCanWrite } from "@/lib/permissions";
 import type { Investigation } from "@/lib/supabase/investigations-types";
 import { btn } from "@/lib/ui/styles";
 import { INVESTIGATION_COLUMNS } from "@/lib/investigations/casier";
+import { isOutOfRange, pageRange } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/Pagination";
 
 export default async function EnquetesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; statut?: string }>;
+  searchParams: Promise<{ q?: string; statut?: string; page?: string }>;
 }) {
-  const { q, statut } = await searchParams;
+  const { q, statut, page: pageParam } = await searchParams;
+  const { page, from, to } = pageRange(pageParam);
   const supabase = await createClient();
 
   const user = await getCurrentUser();
@@ -29,7 +33,7 @@ export default async function EnquetesPage({
 
   let query = supabase
     .from("investigations")
-    .select(INVESTIGATION_COLUMNS)
+    .select(INVESTIGATION_COLUMNS, { count: "exact" })
     .order("created_at", { ascending: false });
 
   if (statut) {
@@ -43,9 +47,12 @@ export default async function EnquetesPage({
     );
   }
 
-  const { data: investigations, error } = await query.returns<
-    Investigation[]
-  >();
+  const { data: investigations, error, count } = await query
+    .range(from, to)
+    .returns<Investigation[]>();
+  if (isOutOfRange(error)) {
+    redirect("/enquetes");
+  }
   if (error) {
     throw new Error("Chargement des enquêtes impossible.");
   }
@@ -83,7 +90,7 @@ export default async function EnquetesPage({
       </div>
 
       <Suspense fallback={null}>
-        <SearchFilterBar resultCount={investigations?.length ?? 0} />
+        <SearchFilterBar resultCount={count ?? investigations?.length ?? 0} />
       </Suspense>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -99,6 +106,13 @@ export default async function EnquetesPage({
           </p>
         )}
       </div>
+
+      <Pagination
+        page={page}
+        total={count ?? 0}
+        basePath="/enquetes"
+        params={{ q, statut }}
+      />
     </div>
   );
 }

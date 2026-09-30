@@ -1,12 +1,20 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getPseudoMap } from "@/lib/archives/agents";
 import { ArchiveListTable } from "@/components/archives/ArchiveListTable";
 import type { Plainte } from "@/lib/supabase/archives-types";
 import { btn } from "@/lib/ui/styles";
+import { isOutOfRange, pageRange } from "@/lib/pagination";
+import { Pagination } from "@/components/ui/Pagination";
 
-export default async function PlaintesPage() {
+export default async function PlaintesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page, from, to } = pageRange((await searchParams).page);
   const supabase = await createClient();
   const user = await getCurrentUser();
 
@@ -16,16 +24,22 @@ export default async function PlaintesPage() {
     .eq("id", user!.id)
     .single();
 
-  const { data: plaintes, error } = await supabase
+  const { data: plaintes, error, count } = await supabase
     .from("plaintes")
-    .select("id, numero, date_redaction, agent_redacteur_id, nom_victime")
+    .select("id, numero, date_redaction, agent_redacteur_id, nom_victime", {
+      count: "exact",
+    })
     .order("numero", { ascending: false })
+    .range(from, to)
     .returns<
       Pick<
         Plainte,
         "id" | "numero" | "date_redaction" | "agent_redacteur_id" | "nom_victime"
       >[]
     >();
+  if (isOutOfRange(error)) {
+    redirect("/archives/plaintes");
+  }
   if (error) {
     throw new Error("Chargement des plaintes impossible.");
   }
@@ -61,7 +75,7 @@ export default async function PlaintesPage() {
         </div>
       </div>
       <p className="mt-1 font-mono text-sm text-gtf-text-muted">
-        {plaintes.length} plainte{plaintes.length > 1 ? "s" : ""}
+        {count ?? plaintes.length} plainte{(count ?? plaintes.length) > 1 ? "s" : ""}
       </p>
 
       <div className="mt-6">
@@ -78,6 +92,8 @@ export default async function PlaintesPage() {
           }))}
         />
       </div>
+
+      <Pagination page={page} total={count ?? 0} basePath="/archives/plaintes" />
     </div>
   );
 }

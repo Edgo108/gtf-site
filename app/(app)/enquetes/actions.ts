@@ -18,6 +18,7 @@ import type {
 import { requireActiveUser } from "@/lib/auth/require";
 import { readExpectedVersion, STALE_EDIT_ERROR } from "@/lib/concurrency";
 import { fetchCasierCode, INVESTIGATION_COLUMNS } from "@/lib/investigations/casier";
+import { checkTextLimits } from "@/lib/limits";
 
 type ActionResult = { error?: string };
 
@@ -75,6 +76,8 @@ export async function createInvestigation(
   }
 
   const fields = readFields(formData);
+  const tooLong = checkTextLimits("investigations", fields);
+  if (tooLong) return { error: tooLong };
 
   if (!fields.titre) {
     return { error: "Le titre est obligatoire." };
@@ -130,6 +133,8 @@ export async function updateInvestigation(
   };
 
   const fields = readFields(formData);
+  const tooLong = checkTextLimits("investigations", fields);
+  if (tooLong) return { error: tooLong };
   if (!fields.titre) {
     return { error: "Le titre est obligatoire." };
   }

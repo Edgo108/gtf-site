@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PatchNoteCategorieBadge } from "@/components/patch-notes/PatchNoteCategorieBadge";
-import { DeletePatchNoteButton } from "@/components/patch-notes/DeletePatchNoteButton";
+import { TrashButton } from "@/components/ui/TrashButton";
+import { deletePatchNote } from "@/app/(app)/patch-notes/actions";
 import {
   formatPatchDate,
   type PatchNote,
@@ -42,7 +43,13 @@ export function PatchNoteCard({
           >
             Modifier
           </Link>
-          <DeletePatchNoteButton id={note.id} titre={note.titre} />
+          <TrashButton
+            action={deletePatchNote}
+            id={note.id}
+            what={`l'entrée « ${note.titre} »`}
+            success="Entrée déplacée vers la corbeille"
+            size="sm"
+          />
         </div>
       )}
     </article>

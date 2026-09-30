@@ -49,14 +49,21 @@ export default async function PatchNotesPage({
         <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
           Patch notes
         </h1>
-        {isAdmin && (
-          <Link
-            href="/patch-notes/nouvelle"
-            className={btn("primary", "md")}
-          >
-            Nouvelle entrée
-          </Link>
-        )}
+        <div className="flex flex-wrap gap-3">
+          {isAdmin && (
+            <Link href="/admin/patch-notes/corbeille" className={btn("secondary", "md")}>
+              Corbeille
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
+              href="/patch-notes/nouvelle"
+              className={btn("primary", "md")}
+            >
+              Nouvelle entrée
+            </Link>
+          )}
+        </div>
       </div>
 
       <p className="mt-1 font-mono text-sm text-gtf-text-muted">

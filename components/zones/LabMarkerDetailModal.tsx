@@ -14,6 +14,7 @@ import type {
 import { BADGE_TONES, badgeBase, btn } from "@/lib/ui/styles";
 import { Spinner } from "@/components/ui/Spinner";
 import { formatParisDateTime } from "@/lib/datetime";
+import { TRASHED_ORGANISATION_LABEL } from "@/lib/supabase/gangs-types";
 
 export function LabMarkerDetailModal({
   marker,
@@ -108,7 +109,7 @@ export function LabMarkerDetailModal({
               </>
             ) : (
               <span className="text-sm text-gtf-text-muted">
-                Organisation inconnue
+                {TRASHED_ORGANISATION_LABEL}
               </span>
             )}
           </div>

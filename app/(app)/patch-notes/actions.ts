@@ -8,6 +8,8 @@ import {
   todayISODate,
   type PatchNoteCategorie,
 } from "@/lib/supabase/patch-notes-types";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { checkTextLimits } from "@/lib/limits";
 
 type ActionResult = { error?: string };
 
@@ -46,6 +48,8 @@ export async function createPatchNote(
   if ("error" in auth) return auth;
 
   const fields = readFields(formData);
+  const tooLong = checkTextLimits("patch_notes", fields);
+  if (tooLong) return { error: tooLong };
   if (!fields.titre) {
     return { error: "Le titre est obligatoire." };
   }
@@ -75,6 +79,8 @@ export async function updatePatchNote(
   }
 
   const fields = readFields(formData);
+  const tooLong = checkTextLimits("patch_notes", fields);
+  if (tooLong) return { error: tooLong };
   if (!fields.titre) {
     return { error: "Le titre est obligatoire." };
   }
@@ -104,9 +110,10 @@ export async function deletePatchNote(
     return { error: "Identifiant manquant." };
   }
 
-  const { error } = await auth.supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from("patch_notes")
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", id);
 
   if (error) {

@@ -42,6 +42,8 @@ export type PatchNote = {
   date: string; // "YYYY-MM-DD"
   created_by: string | null;
   created_at: string;
+  // Corbeille (null = fiche active), voir supabase/corbeille_sections.sql.
+  deleted_at?: string | null;
 };
 
 // Format court FR sans dépendre du fuseau (le champ `date` est une date

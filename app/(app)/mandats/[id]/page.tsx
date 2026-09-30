@@ -7,7 +7,8 @@ import { WantedPhoto } from "@/components/wanted/WantedPhoto";
 import { DangerBadge } from "@/components/wanted/DangerBadge";
 import { StatutBadge } from "@/components/wanted/StatutBadge";
 import { MarkCapturedButton } from "@/components/wanted/MarkCapturedButton";
-import { DeleteWantedButton } from "@/components/wanted/DeleteWantedButton";
+import { TrashButton } from "@/components/ui/TrashButton";
+import { deleteWantedNotice } from "@/app/(app)/mandats/actions";
 import { normalizeName, parseSuspectNames } from "@/lib/investigations/suspects";
 import { uniteCanWrite } from "@/lib/permissions";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
@@ -106,7 +107,12 @@ export default async function MandatDetailPage({
                 Modifier
               </Link>
               <MarkCapturedButton id={notice.id} statut={notice.statut} />
-              <DeleteWantedButton id={notice.id} />
+              <TrashButton
+                action={deleteWantedNotice}
+                id={notice.id}
+                what="ce mandat"
+                success="Mandat déplacé vers la corbeille"
+              />
             </div>
           )}
         </div>

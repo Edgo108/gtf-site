@@ -37,7 +37,10 @@ export default async function AppLayout({
     supabase.from("announcements").select("id", { count: "exact", head: true }),
     supabase
       .from("announcement_reads")
-      .select("announcement_id", { count: "exact", head: true })
+      .select("announcement_id, announcements!inner(id)", {
+        count: "exact",
+        head: true,
+      })
       .eq("user_id", user.id),
     supabase
       .from("wanted_notice_views")

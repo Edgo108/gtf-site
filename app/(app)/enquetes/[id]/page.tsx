@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { Panel } from "@/components/ui/Panel";
 import { StatutBadge } from "@/components/investigations/StatutBadge";
-import { DeleteInvestigationButton } from "@/components/investigations/DeleteInvestigationButton";
+import { TrashButton } from "@/components/ui/TrashButton";
+import { softDeleteInvestigation } from "@/app/(app)/enquetes/actions";
 import {
   LabCategorieBadge,
   LabStatutBadge,
@@ -18,6 +19,7 @@ import type { LabMarker } from "@/lib/supabase/lab-markers-types";
 import { btn } from "@/lib/ui/styles";
 import { formatParisDateTime } from "@/lib/datetime";
 import { fetchCasierCode, INVESTIGATION_COLUMNS } from "@/lib/investigations/casier";
+import { TRASHED_ORGANISATION_LABEL } from "@/lib/supabase/gangs-types";
 
 export default async function EnqueteDetailPage({
   params,
@@ -92,7 +94,14 @@ export default async function EnqueteDetailPage({
               Modifier
             </Link>
           )}
-          {canDelete && <DeleteInvestigationButton id={investigation.id} />}
+          {canDelete && (
+            <TrashButton
+              action={softDeleteInvestigation}
+              id={investigation.id}
+              what="cette enquête"
+              success="Enquête déplacée vers la corbeille"
+            />
+          )}
         </div>
       </div>
 
@@ -159,7 +168,7 @@ export default async function EnqueteDetailPage({
                 <LabStatutBadge statut={lab.statut} />
                 <span className="text-sm text-gtf-text-muted">
                   {labOrgNomById.get(lab.organisation_id) ??
-                    "Organisation inconnue"}
+                    TRASHED_ORGANISATION_LABEL}
                 </span>
               </li>
             ))}

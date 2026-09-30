@@ -40,14 +40,21 @@ export default async function AnnoncesPage() {
         <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
           Annonces
         </h1>
-        {canCreate && (
-          <Link
-            href="/annonces/nouvelle"
-            className={btn("primary", "md")}
-          >
-            Nouvelle notification
-          </Link>
-        )}
+        <div className="flex flex-wrap gap-3">
+          {profile?.role === "admin" && (
+            <Link href="/admin/annonces/corbeille" className={btn("secondary", "md")}>
+              Corbeille
+            </Link>
+          )}
+          {canCreate && (
+            <Link
+              href="/annonces/nouvelle"
+              className={btn("primary", "md")}
+            >
+              Nouvelle notification
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="mt-6 flex flex-col gap-4">
