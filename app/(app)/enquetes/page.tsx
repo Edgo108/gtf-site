@@ -52,7 +52,13 @@ export default async function EnquetesPage({
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <Link
+        href="/archives"
+        className="font-mono text-xs uppercase tracking-wider text-gtf-text-muted hover:text-gtf-text"
+      >
+        ← Archives
+      </Link>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
           Enquêtes
         </h1>

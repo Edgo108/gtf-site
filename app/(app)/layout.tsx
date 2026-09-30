@@ -53,7 +53,8 @@ export default async function AppLayout({
 
   const links: NavLink[] = [
     { href: "/dashboard", label: "Tableau de bord" },
-    { href: "/enquetes", label: "Enquêtes" },
+    // Enquêtes, Rapports et Plaintes sont regroupés derrière « Archives ».
+    { href: "/archives", label: "Archives", match: ["/enquetes"] },
     { href: "/mandats", label: "Mandats", badge: newMandatsCount ?? 0 },
     { href: "/gangs", label: "B.D.D" },
     { href: "/zones", label: "Carte" },

@@ -11,7 +11,16 @@ export type NavLink = {
   href: string;
   label: string;
   badge?: number;
+  // Autres préfixes de chemin pour lesquels le lien est affiché comme actif
+  // (ex. « Archives » reste actif sur /enquetes).
+  match?: string[];
 };
+
+function isActive(pathname: string, link: NavLink): boolean {
+  return [link.href, ...(link.match ?? [])].some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 // Barre de navigation principale. Sous `xl` (tablette / mobile) les liens
 // passent dans un menu hamburger déroulant, qui se referme tout seul à
@@ -31,11 +40,9 @@ export function AppHeader({
   const [openFor, setOpenFor] = useState<string | null>(null);
   const open = openFor === pathname;
 
-  const linkClass = (href: string) =>
+  const linkClass = (link: NavLink) =>
     `relative transition-colors hover:text-gtf-text ${
-      pathname === href || pathname.startsWith(`${href}/`)
-        ? "text-gtf-text"
-        : ""
+      isActive(pathname, link) ? "text-gtf-text" : ""
     }`;
 
   const logout = (
@@ -68,7 +75,7 @@ export function AppHeader({
             className="hidden items-center gap-5 font-mono text-xs uppercase tracking-wider text-gtf-text-muted xl:flex"
           >
             {links.map((link) => (
-              <Link key={link.href} href={link.href} className={linkClass(link.href)}>
+              <Link key={link.href} href={link.href} className={linkClass(link)}>
                 {link.label}
                 <NavBadge count={link.badge ?? 0} />
               </Link>
@@ -119,9 +126,7 @@ export function AppHeader({
                 key={link.href}
                 href={link.href}
                 className={`flex items-center justify-between border-b border-gtf-border py-3 transition-colors hover:text-gtf-text ${
-                  pathname === link.href || pathname.startsWith(`${link.href}/`)
-                    ? "text-gtf-text"
-                    : ""
+                  isActive(pathname, link) ? "text-gtf-text" : ""
                 }`}
               >
                 {link.label}
