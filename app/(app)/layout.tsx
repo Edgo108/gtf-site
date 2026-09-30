@@ -58,6 +58,7 @@ export default async function AppLayout({
     { href: "/mandats", label: "Mandats", badge: newMandatsCount ?? 0 },
     { href: "/gangs", label: "B.D.D" },
     { href: "/zones", label: "Carte" },
+    { href: "/dispatch", label: "Dispatch" },
   ];
   // Section entièrement invisible pour les agents DOJ, y compris dans la
   // navigation.
