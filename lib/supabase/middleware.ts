@@ -67,16 +67,31 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role, grade, doit_changer_mdp")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
+
+  if (profileError) {
+    // Erreur passagère (réseau, Supabase) : on ne déconnecte pas l'agent,
+    // la page et la RLS feront leurs propres contrôles.
+    return supabaseResponse;
+  }
 
   if (!profile) {
-    // Compte auth sans profil (cas limite) : on laisse passer plutôt que
-    // de bloquer complètement l'accès.
-    return supabaseResponse;
+    // Compte de connexion sans fiche agent (création interrompue, fiche
+    // supprimée à la main…) : aucune page ne peut fonctionner sans profil.
+    // On déconnecte et on renvoie à la page de connexion, en reportant les
+    // cookies de session effacés sur la redirection.
+    await supabase.auth.signOut();
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    const redirect = NextResponse.redirect(url);
+    supabaseResponse.cookies
+      .getAll()
+      .forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
   }
 
   if (profile.doit_changer_mdp && pathname !== "/changer-mot-de-passe") {

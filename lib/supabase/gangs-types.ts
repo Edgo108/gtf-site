@@ -8,7 +8,7 @@ export type GangCategorie = "Gang" | "MC" | "Orga";
 // Source unique pour tout menu déroulant basé sur la catégorie (formulaire
 // B.D.D, filtre, et futures fonctionnalités : ex. organisation liée à un
 // marqueur laboratoire sur la carte).
-export const GANG_CATEGORIES: readonly GangCategorie[] = ["Gang", "MC", "Orga"];
+const GANG_CATEGORIES: readonly GangCategorie[] = ["Gang", "MC", "Orga"];
 
 // Libellé court (badge, colonne de tableau).
 export const GANG_CATEGORIE_LABELS: Record<GangCategorie, string> = {
@@ -18,7 +18,7 @@ export const GANG_CATEGORIE_LABELS: Record<GangCategorie, string> = {
 };
 
 // Libellé complet (aide, description).
-export const GANG_CATEGORIE_LABELS_LONG: Record<GangCategorie, string> = {
+const GANG_CATEGORIE_LABELS_LONG: Record<GangCategorie, string> = {
   Gang: "Gang",
   MC: "MC (Motorcycle Club)",
   Orga: "Orga (Organisation)",

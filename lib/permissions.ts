@@ -85,7 +85,7 @@ export function canManageUnite(actor: {
 // Le Capitaine a les mêmes droits que le Commandant. Doit rester
 // synchronisé avec public.can_create_announcements() dans
 // supabase/announcements.sql.
-export const ANNOUNCEMENT_AUTHOR_GRADES = [
+const ANNOUNCEMENT_AUTHOR_GRADES = [
   "Lieutenant",
   "Capitaine",
   "Commandant",

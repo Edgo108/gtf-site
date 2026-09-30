@@ -10,9 +10,3 @@ export type Announcement = {
   updated_at: string;
 };
 
-export type AnnouncementRead = {
-  id: string;
-  announcement_id: string;
-  user_id: string;
-  read_at: string;
-};

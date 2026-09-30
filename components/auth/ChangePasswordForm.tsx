@@ -7,13 +7,12 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { Spinner } from "@/components/ui/Spinner";
 import { btn, fieldClass, labelClass } from "@/lib/ui/styles";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/ui/use-action-runner";
+import { completeForcedPasswordChange } from "@/lib/actions/auth";
 
 export function ChangePasswordForm({
   mode,
-  userId,
 }: {
   mode: "forced" | "voluntary";
-  userId: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -38,6 +37,32 @@ export function ChangePasswordForm({
     }
 
     setLoading(true);
+
+    // Changement obligatoire : mot de passe + levée du drapeau faits
+    // ensemble par le serveur (le navigateur ne peut plus lever le
+    // drapeau lui-même).
+    if (mode === "forced") {
+      let result: { error?: string };
+      try {
+        result = await completeForcedPasswordChange(password);
+      } catch {
+        setLoading(false);
+        setError(NETWORK_ERROR_MESSAGE);
+        toast.error(NETWORK_ERROR_MESSAGE);
+        return;
+      }
+      setLoading(false);
+      if (result.error) {
+        setError(result.error);
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Mot de passe mis à jour");
+      router.push("/dashboard");
+      router.refresh();
+      return;
+    }
+
     const supabase = createClient();
 
     let updateError: unknown = null;
@@ -55,28 +80,6 @@ export function ChangePasswordForm({
       const message = "Impossible de changer le mot de passe. Réessayez.";
       setError(message);
       toast.error(message);
-      return;
-    }
-
-    if (mode === "forced") {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ doit_changer_mdp: false })
-        .eq("id", userId);
-
-      setLoading(false);
-
-      if (profileError) {
-        const message =
-          "Mot de passe changé, mais une erreur est survenue. Contactez un administrateur.";
-        setError(message);
-        toast.error(message);
-        return;
-      }
-
-      toast.success("Mot de passe mis à jour");
-      router.push("/dashboard");
-      router.refresh();
       return;
     }
 

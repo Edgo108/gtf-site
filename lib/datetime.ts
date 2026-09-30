@@ -5,7 +5,7 @@
 // ambiguïté. Ne jamais appeler toLocaleString() sans `timeZone` : sur le
 // serveur, cela affiche l'heure UTC.
 
-export const SITE_TIME_ZONE = "Europe/Paris";
+const SITE_TIME_ZONE = "Europe/Paris";
 
 function parisParts(date: Date) {
   const parts = new Intl.DateTimeFormat("en-GB", {

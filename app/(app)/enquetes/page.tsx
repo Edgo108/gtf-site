@@ -7,6 +7,7 @@ import { SearchFilterBar } from "@/components/investigations/SearchFilterBar";
 import { uniteCanWrite } from "@/lib/permissions";
 import type { Investigation } from "@/lib/supabase/investigations-types";
 import { btn } from "@/lib/ui/styles";
+import { INVESTIGATION_COLUMNS } from "@/lib/investigations/casier";
 
 export default async function EnquetesPage({
   searchParams,
@@ -28,14 +29,14 @@ export default async function EnquetesPage({
 
   let query = supabase
     .from("investigations")
-    .select("*")
+    .select(INVESTIGATION_COLUMNS)
     .order("created_at", { ascending: false });
 
   if (statut) {
     query = query.eq("statut", statut);
   }
 
-  const sanitizedQ = q?.replace(/[%,()]/g, "").trim();
+  const sanitizedQ = q?.replace(/[%,()*\\"]/g, "").trim();
   if (sanitizedQ) {
     query = query.or(
       `titre.ilike.%${sanitizedQ}%,suspects.ilike.%${sanitizedQ}%,agent_responsable.ilike.%${sanitizedQ}%`,
@@ -45,7 +46,7 @@ export default async function EnquetesPage({
   const { data: investigations, error } = await query.returns<
     Investigation[]
   >();
-  if (error && !sanitizedQ) {
+  if (error) {
     throw new Error("Chargement des enquêtes impossible.");
   }
 

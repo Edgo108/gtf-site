@@ -160,17 +160,29 @@ export async function updateAgentUnite(
 }
 
 export async function toggleStatut(formData: FormData): Promise<ActionResult> {
-  await requireAdmin();
+  const { user: currentUser } = await requireAdmin();
 
   const id = String(formData.get("id") ?? "");
-  const current = String(formData.get("statut") ?? "");
-  const next = current === "actif" ? "suspendu" : "actif";
-
   if (!id) {
     return { error: "Identifiant manquant." };
   }
+  if (id === currentUser.id) {
+    return { error: "Vous ne pouvez pas suspendre votre propre compte." };
+  }
 
   const admin = createAdminClient();
+
+  // Nouveau statut calculé à partir de la base, pas de la valeur affichée
+  // dans le navigateur (qui peut être périmée : double clic, autre onglet).
+  const { data: target } = await admin
+    .from("profiles")
+    .select("statut")
+    .eq("id", id)
+    .maybeSingle();
+  if (!target) {
+    return { error: "Compte introuvable." };
+  }
+  const next = target.statut === "actif" ? "suspendu" : "actif";
 
   const { error: banError } = await admin.auth.admin.updateUserById(id, {
     ban_duration: next === "suspendu" ? "876000h" : "none",
@@ -186,6 +198,15 @@ export async function toggleStatut(formData: FormData): Promise<ActionResult> {
 
   if (error) {
     return { error: "Impossible de mettre à jour le statut." };
+  }
+
+  // Un compte suspendu sort du dispatch (fin de service, et libération du
+  // rôle de dispatcheur s'il le détenait).
+  if (next === "suspendu") {
+    await Promise.all([
+      admin.from("agent_status").delete().eq("agent_id", id),
+      admin.from("dispatch_role").delete().eq("agent_id", id),
+    ]);
   }
 
   revalidatePath("/admin/agents");

@@ -22,7 +22,7 @@ export const NETWORK_ERROR_MESSAGE =
 // Exception levée par une Server Action (perte de session, permission
 // refusée dans un `requireX()`, erreur Supabase inattendue…). En production
 // Next masque le message d'origine : on reste volontairement générique.
-export const ACTION_FAILED_MESSAGE =
+const ACTION_FAILED_MESSAGE =
   "L'action a échoué. Votre session a peut-être expiré ou vous n'avez pas les droits nécessaires : rechargez la page puis réessayez.";
 
 // `redirect()` dans une Server Action rejette la promesse côté client avec
@@ -44,7 +44,7 @@ function isNetworkError(error: unknown): boolean {
   );
 }
 
-export function describeActionError(error: unknown): string {
+function describeActionError(error: unknown): string {
   return isNetworkError(error) ? NETWORK_ERROR_MESSAGE : ACTION_FAILED_MESSAGE;
 }
 

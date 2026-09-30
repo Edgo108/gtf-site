@@ -21,7 +21,7 @@ export default async function ChangerMotDePassePage() {
         </p>
       </div>
 
-      <ChangePasswordForm mode="forced" userId={user.id} />
+      <ChangePasswordForm mode="forced" />
     </main>
   );
 }

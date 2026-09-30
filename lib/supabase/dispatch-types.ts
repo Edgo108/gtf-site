@@ -93,7 +93,7 @@ export type DispatchAgent = {
   updated_at: string;
 };
 
-export type DispatcherInfo = {
+type DispatcherInfo = {
   agent_id: string;
   pseudo: string;
   taken_at: string;

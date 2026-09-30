@@ -11,7 +11,9 @@ export type Investigation = {
   // Casier de preuves physique (salle des saisies du serveur RP) — les
   // deux champs sont optionnels, non renseignés = null.
   casier_numero: string | null;
-  casier_code_acces: string | null;
+  // Réservé aux unités en écriture : absent des lectures normales, obtenu
+  // via fetchCasierCode() (lib/investigations/casier.ts).
+  casier_code_acces?: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

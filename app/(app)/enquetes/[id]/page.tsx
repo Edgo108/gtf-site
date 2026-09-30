@@ -17,6 +17,7 @@ import type {
 import type { LabMarker } from "@/lib/supabase/lab-markers-types";
 import { btn } from "@/lib/ui/styles";
 import { formatParisDateTime } from "@/lib/datetime";
+import { fetchCasierCode, INVESTIGATION_COLUMNS } from "@/lib/investigations/casier";
 
 export default async function EnqueteDetailPage({
   params,
@@ -38,13 +39,15 @@ export default async function EnqueteDetailPage({
 
   const { data: investigation } = await supabase
     .from("investigations")
-    .select("*")
+    .select(INVESTIGATION_COLUMNS)
     .eq("id", id)
     .single<Investigation>();
 
   if (!investigation) {
     notFound();
   }
+
+  const casierCode = canWrite ? await fetchCasierCode(supabase, id) : null;
 
   const { data: history } = await supabase
     .from("investigation_history")
@@ -133,8 +136,14 @@ export default async function EnqueteDetailPage({
               Code d&apos;accès
             </span>
             <p className="mt-1 text-sm">
-              {investigation.casier_code_acces || (
-                <span className="text-gtf-text-muted">Non renseigné</span>
+              {!canWrite ? (
+                <span className="text-gtf-text-muted">
+                  Masqué (réservé aux unités ID / GTF / EM)
+                </span>
+              ) : (
+                casierCode || (
+                  <span className="text-gtf-text-muted">Non renseigné</span>
+                )
               )}
             </p>
           </div>

@@ -3,7 +3,7 @@
 export type LabCategorie = "arme" | "cocaine" | "meth";
 export type LabStatut = "actif" | "raided" | "potentiel";
 
-export const LAB_CATEGORIES: readonly LabCategorie[] = [
+const LAB_CATEGORIES: readonly LabCategorie[] = [
   "arme",
   "cocaine",
   "meth",
@@ -36,7 +36,7 @@ export function labMarkerIconUrl(marker: {
   return `/markers/${marker.categorie}.png`;
 }
 
-export const LAB_STATUTS: readonly LabStatut[] = [
+const LAB_STATUTS: readonly LabStatut[] = [
   "actif",
   "raided",
   "potentiel",
@@ -90,11 +90,5 @@ export type LabMarkerHistoryEntry = {
   created_at: string;
 };
 
-export type LabMarkerLock = {
-  marker_id: string;
-  locked_by: string;
-  locked_at: string;
-};
-
 // Même durée que pour les zones sensibles.
-export { LOCK_DURATION_MS } from "@/lib/supabase/zones-types";
+;

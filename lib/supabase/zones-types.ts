@@ -22,10 +22,4 @@ export type ZoneHistoryEntry = {
   created_at: string;
 };
 
-export type ZoneLock = {
-  zone_id: string;
-  locked_by: string;
-  locked_at: string;
-};
-
 export const LOCK_DURATION_MS = 3 * 60 * 1000;

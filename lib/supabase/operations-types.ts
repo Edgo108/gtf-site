@@ -4,7 +4,7 @@
 
 export type OperationStatut = "en_cours" | "cloturee" | "archivee";
 
-export const OPERATION_STATUTS: readonly OperationStatut[] = [
+const OPERATION_STATUTS: readonly OperationStatut[] = [
   "en_cours",
   "cloturee",
   "archivee",
@@ -49,14 +49,6 @@ export type OperationListRow = {
   titre: string;
   statut: OperationStatut;
   lead_pseudo: string;
-};
-
-export type OperationWriter = {
-  id: string;
-  operation_id: string;
-  agent_id: string;
-  added_by: string | null;
-  created_at: string;
 };
 
 // --- Tables de liaison -------------------------------------------------

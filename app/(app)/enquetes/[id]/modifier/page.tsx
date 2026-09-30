@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { InvestigationForm } from "@/components/investigations/InvestigationForm";
 import { uniteCanWrite } from "@/lib/permissions";
 import type { Investigation } from "@/lib/supabase/investigations-types";
+import { fetchCasierCode, INVESTIGATION_COLUMNS } from "@/lib/investigations/casier";
 
 export default async function ModifierEnquetePage({
   params,
@@ -25,15 +26,19 @@ export default async function ModifierEnquetePage({
     redirect(`/enquetes/${id}`);
   }
 
-  const { data: investigation } = await supabase
+  const { data: row } = await supabase
     .from("investigations")
-    .select("*")
+    .select(INVESTIGATION_COLUMNS)
     .eq("id", id)
     .single<Investigation>();
 
-  if (!investigation) {
+  if (!row) {
     notFound();
   }
+  const investigation: Investigation = {
+    ...row,
+    casier_code_acces: await fetchCasierCode(supabase, id),
+  };
 
   return (
     <div className="mx-auto max-w-2xl">

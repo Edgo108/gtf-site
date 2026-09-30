@@ -67,7 +67,7 @@ export default async function ProfilPage() {
       </Panel>
 
       <Panel title="Changer mon mot de passe" className="mt-6">
-        <ChangePasswordForm mode="voluntary" userId={user!.id} />
+        <ChangePasswordForm mode="voluntary" />
       </Panel>
     </div>
   );

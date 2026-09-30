@@ -34,7 +34,7 @@ export default async function GangsPage({
   if (isGangCategorie(categorie)) {
     query = query.eq("categorie", categorie);
   }
-  const sanitizedQ = q?.replace(/[%,()]/g, "").trim();
+  const sanitizedQ = q?.replace(/[%,()*\\"]/g, "").trim();
   if (sanitizedQ) {
     query = query.ilike("nom", `%${sanitizedQ}%`);
   }

@@ -4,7 +4,7 @@ import { Spinner } from "@/components/ui/Spinner";
 // Squelettes de chargement (loading.tsx) : mêmes gabarits que les vraies
 // pages pour éviter les sauts de mise en page à l'arrivée des données.
 
-export function Skeleton({ className = "" }: { className?: string }) {
+function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div
       aria-hidden="true"

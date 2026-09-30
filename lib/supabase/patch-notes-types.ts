@@ -5,7 +5,7 @@ import { todayParisISODate } from "@/lib/datetime";
 export type PatchNoteCategorie = "nouveaute" | "correction" | "amelioration";
 
 // Ordre d'affichage dans les filtres / sélecteurs.
-export const PATCH_NOTE_CATEGORIES: readonly PatchNoteCategorie[] = [
+const PATCH_NOTE_CATEGORIES: readonly PatchNoteCategorie[] = [
   "nouveaute",
   "amelioration",
   "correction",

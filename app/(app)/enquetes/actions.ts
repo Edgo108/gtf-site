@@ -17,6 +17,7 @@ import type {
 } from "@/lib/supabase/investigations-types";
 import { requireActiveUser } from "@/lib/auth/require";
 import { readExpectedVersion, STALE_EDIT_ERROR } from "@/lib/concurrency";
+import { fetchCasierCode, INVESTIGATION_COLUMNS } from "@/lib/investigations/casier";
 
 type ActionResult = { error?: string };
 
@@ -114,15 +115,19 @@ export async function updateInvestigation(
     return { error: "Identifiant manquant." };
   }
 
-  const { data: oldRow } = await supabase
+  const { data: oldRowBase } = await supabase
     .from("investigations")
-    .select("*")
+    .select(INVESTIGATION_COLUMNS)
     .eq("id", id)
     .single<Investigation>();
 
-  if (!oldRow) {
+  if (!oldRowBase) {
     return { error: "Enquête introuvable." };
   }
+  const oldRow: Investigation = {
+    ...oldRowBase,
+    casier_code_acces: await fetchCasierCode(supabase, id),
+  };
 
   const fields = readFields(formData);
   if (!fields.titre) {
