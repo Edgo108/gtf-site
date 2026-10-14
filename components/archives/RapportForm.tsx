@@ -15,6 +15,7 @@ import { SignatureField } from "./SignatureField";
 import { VERSION_FIELD } from "@/lib/concurrency";
 import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
 import { useAttachmentDrafts } from "@/lib/attachments/use-attachment-drafts";
+import { TestModeField } from "./TestModeField";
 import type { AttachmentView } from "@/lib/attachments/types";
 import { InfractionPicker } from "./InfractionPicker";
 import type {
@@ -50,6 +51,24 @@ export function RapportForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const drafts = useAttachmentDrafts("rapport");
+  // Mode test : choisi à la création uniquement, figé ensuite.
+  const [estTest, setEstTest] = useState(rapport?.est_test ?? false);
+
+  function handleTestModeChange(checked: boolean) {
+    // Un test n'a pas de pièces jointes : celles déjà envoyées sont
+    // retirées après confirmation.
+    if (
+      checked &&
+      drafts.drafts.length > 0 &&
+      !window.confirm(
+        "Les fichiers déjà joints seront supprimés : un test n'a pas de pièces jointes. Continuer ?",
+      )
+    ) {
+      return;
+    }
+    if (checked) drafts.discardAll();
+    setEstTest(checked);
+  }
   const nameSuggestions = useNameSuggestions();
   const [redacteurId, setRedacteurId] = useState(
     rapport?.agent_redacteur_id ??
@@ -76,7 +95,11 @@ export function RapportForm({
     startTransition(async () => {
       const action = rapport ? updateRapport : createRapport;
       const result = await run(() => action(formData), {
-        success: rapport ? "Rapport mis à jour" : "Rapport créé",
+        success: rapport
+          ? "Rapport mis à jour"
+          : estTest
+            ? "Test enregistré"
+            : "Rapport créé",
         inline: true,
       });
       if (result?.error) {
@@ -91,6 +114,16 @@ export function RapportForm({
       <p className="font-mono text-[11px] text-gtf-text-muted">
         Dates et heures en heure de Paris.
       </p>
+
+      {rapport ? (
+        <TestModeField checked={rapport.est_test} />
+      ) : (
+        <TestModeField
+          checked={estTest}
+          onChange={handleTestModeChange}
+          disabled={drafts.uploading > 0}
+        />
+      )}
 
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
@@ -221,7 +254,8 @@ export function RapportForm({
         missingSourceHint="Sélectionnez d'abord l'agent rédacteur."
       />
 
-      {rapport ? (
+      {/* Un test n'a pas de pièces jointes. */}
+      {estTest ? null : rapport ? (
         <AttachmentsSection
           parentType="rapport"
           parentId={rapport.id}

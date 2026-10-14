@@ -12,6 +12,7 @@ import { SignatureField } from "./SignatureField";
 import { VERSION_FIELD } from "@/lib/concurrency";
 import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
 import { useAttachmentDrafts } from "@/lib/attachments/use-attachment-drafts";
+import { TestModeField } from "./TestModeField";
 import type { AttachmentView } from "@/lib/attachments/types";
 
 export function PlainteForm({
@@ -34,6 +35,24 @@ export function PlainteForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const drafts = useAttachmentDrafts("plainte");
+  // Mode test : choisi à la création uniquement, figé ensuite.
+  const [estTest, setEstTest] = useState(plainte?.est_test ?? false);
+
+  function handleTestModeChange(checked: boolean) {
+    // Un test n'a pas de pièces jointes : celles déjà envoyées sont
+    // retirées après confirmation.
+    if (
+      checked &&
+      drafts.drafts.length > 0 &&
+      !window.confirm(
+        "Les fichiers déjà joints seront supprimés : un test n'a pas de pièces jointes. Continuer ?",
+      )
+    ) {
+      return;
+    }
+    if (checked) drafts.discardAll();
+    setEstTest(checked);
+  }
   const [nomVictime, setNomVictime] = useState(plainte?.nom_victime ?? "");
   const [redacteurId, setRedacteurId] = useState(
     plainte?.agent_redacteur_id ??
@@ -60,7 +79,11 @@ export function PlainteForm({
     startTransition(async () => {
       const action = plainte ? updatePlainte : createPlainte;
       const result = await run(() => action(formData), {
-        success: plainte ? "Plainte mise à jour" : "Plainte enregistrée",
+        success: plainte
+          ? "Plainte mise à jour"
+          : estTest
+            ? "Test enregistré"
+            : "Plainte enregistrée",
         inline: true,
       });
       if (result?.error) {
@@ -75,6 +98,16 @@ export function PlainteForm({
       <p className="font-mono text-[11px] text-gtf-text-muted">
         Dates et heures en heure de Paris.
       </p>
+
+      {plainte ? (
+        <TestModeField checked={plainte.est_test} />
+      ) : (
+        <TestModeField
+          checked={estTest}
+          onChange={handleTestModeChange}
+          disabled={drafts.uploading > 0}
+        />
+      )}
 
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
@@ -178,7 +211,8 @@ export function PlainteForm({
         />
       </div>
 
-      {plainte ? (
+      {/* Un test n'a pas de pièces jointes. */}
+      {estTest ? null : plainte ? (
         <AttachmentsSection
           parentType="plainte"
           parentId={plainte.id}

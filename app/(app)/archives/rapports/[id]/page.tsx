@@ -7,9 +7,18 @@ import { formatParisDateTime } from "@/lib/datetime";
 import { Panel } from "@/components/ui/Panel";
 import { ArchiveField, EmptyValue } from "@/components/archives/ArchiveField";
 import { TrashButton } from "@/components/ui/TrashButton";
-import { softDeleteRapport } from "@/app/(app)/archives/actions";
+import {
+  deleteTestRapport,
+  softDeleteRapport,
+} from "@/app/(app)/archives/actions";
 import { Signature } from "@/components/archives/Signature";
-import { formatNumero, type Rapport } from "@/lib/supabase/archives-types";
+import {
+  archiveReference,
+  TEST_MODE_EXPLANATION,
+  type Rapport,
+} from "@/lib/supabase/archives-types";
+import { TestBadge } from "@/components/archives/TestBadge";
+import { ActionButton } from "@/components/ui/ActionButton";
 import { btn } from "@/lib/ui/styles";
 import { loadAttachments } from "@/lib/attachments/server";
 import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
@@ -47,7 +56,7 @@ export default async function RapportDetailPage({
 
   const [infractions, attachments] = await Promise.all([
     getRapportInfractions(rapport.id),
-    loadAttachments(supabase, "rapport", rapport.id),
+    rapport.est_test ? [] : loadAttachments(supabase, "rapport", rapport.id),
   ]);
   const articles = await getCodePenalArticlesByIds(
     infractions.map((l) => l.article_id),
@@ -74,8 +83,9 @@ export default async function RapportDetailPage({
       </Link>
       <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
-            Rapport #{formatNumero(rapport.numero)}
+          <h1 className="flex flex-wrap items-center gap-3 font-display text-2xl font-bold uppercase tracking-wide">
+            Rapport {archiveReference(rapport)}
+            {rapport.est_test && <TestBadge />}
           </h1>
           <p className="mt-1 font-mono text-xs text-gtf-text-muted">
             Saisi par {pseudo(rapport.created_by)} · modifié le{" "}
@@ -89,7 +99,18 @@ export default async function RapportDetailPage({
           >
             Modifier
           </Link>
-          {canDelete && (
+          {canDelete && rapport.est_test && (
+            <ActionButton
+              action={deleteTestRapport}
+              fields={{ id: rapport.id }}
+              confirm="Supprimer définitivement ce test ? Cette action est irréversible."
+              success="Test supprimé"
+              variant="danger"
+            >
+              Supprimer
+            </ActionButton>
+          )}
+          {canDelete && !rapport.est_test && (
             <TrashButton
               action={softDeleteRapport}
               id={rapport.id}
@@ -99,6 +120,12 @@ export default async function RapportDetailPage({
           )}
         </div>
       </div>
+
+      {rapport.est_test && (
+        <p className="mt-4 rounded-md border border-gtf-violet/60 bg-gtf-violet/10 px-4 py-3 text-sm text-gtf-violet">
+          {TEST_MODE_EXPLANATION}
+        </p>
+      )}
 
       <Panel title="Intervention" className="mt-6">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -166,14 +193,17 @@ export default async function RapportDetailPage({
         </div>
       </Panel>
 
-      <div className="mt-4">
-        <AttachmentsSection
-          parentType="rapport"
-          parentId={rapport.id}
-          initial={attachments}
-          canEdit
-        />
-      </div>
+      {/* Un test n'a pas de pièces jointes. */}
+      {!rapport.est_test && (
+        <div className="mt-4">
+          <AttachmentsSection
+            parentType="rapport"
+            parentId={rapport.id}
+            initial={attachments}
+            canEdit
+          />
+        </div>
+      )}
     </div>
   );
 }

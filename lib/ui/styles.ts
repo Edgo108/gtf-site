@@ -68,4 +68,5 @@ export const BADGE_TONES = {
   amber: "border-gtf-amber text-gtf-amber bg-gtf-amber/10",
   red: "border-gtf-red text-gtf-red bg-gtf-red/10",
   muted: "border-gtf-text-muted text-gtf-text-muted bg-gtf-panel-alt",
+  violet: "border-gtf-violet text-gtf-violet bg-gtf-violet/10",
 } as const;

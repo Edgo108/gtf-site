@@ -6,7 +6,7 @@ import {
   getCodePenalPickerArticles,
   getRapportInfractions,
 } from "@/lib/archives/code-penal";
-import { formatNumero, type Rapport } from "@/lib/supabase/archives-types";
+import { archiveReference, type Rapport } from "@/lib/supabase/archives-types";
 import { loadAttachments } from "@/lib/attachments/server";
 
 export default async function ModifierRapportPage({
@@ -31,13 +31,13 @@ export default async function ModifierRapportPage({
     getAgentOptions([rapport.agent_redacteur_id, ...rapport.agents_lies]),
     getCodePenalPickerArticles(),
     getRapportInfractions(rapport.id),
-    loadAttachments(supabase, "rapport", rapport.id),
+    rapport.est_test ? [] : loadAttachments(supabase, "rapport", rapport.id),
   ]);
 
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
-        Modifier le rapport #{formatNumero(rapport.numero)}
+        Modifier le rapport {archiveReference(rapport)}
       </h1>
       <div className="mt-6">
         <RapportForm

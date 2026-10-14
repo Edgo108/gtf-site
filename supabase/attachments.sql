@@ -57,6 +57,8 @@ set
 -- des fiches masque celles en corbeille : sans cela, une fiche en
 -- corbeille passerait pour « pas encore créée » et deviendrait
 -- modifiable. Ne renvoie qu'un état, jamais de contenu.
+-- ⚠ Redéfinie par archives_mode_test.sql (état 'test') : si ce fichier
+-- est relancé, relancer archives_mode_test.sql ensuite.
 create or replace function public.attachment_parent_state(p_type text, p_id uuid)
 returns text
 language plpgsql

@@ -13,6 +13,7 @@ import {
   readAttachmentDrafts,
   readNewRecordId,
   registerAttachmentRows,
+  removeParentFiles,
 } from "@/lib/attachments/server";
 import {
   isValidFormulaAmount,
@@ -27,6 +28,12 @@ function text(formData: FormData, key: string): string {
 
 function date(formData: FormData, key: string): string | null {
   return parisInputToISO(text(formData, key));
+}
+
+// Case « Mode test » du formulaire de création. Ne sert qu'à l'insertion :
+// la base refuse ensuite tout changement de ce statut.
+function isTest(formData: FormData): boolean {
+  return text(formData, "est_test") !== "";
 }
 
 // Vérifie que tous les ids désignent bien des comptes existants et
@@ -173,11 +180,17 @@ export async function createRapport(
   if (tooLong) return { error: tooLong };
   const infractions = await readInfractions(supabase, formData);
   if ("error" in infractions) return { error: infractions.error };
+  const est_test = isTest(formData);
   const attachmentDrafts = readAttachmentDrafts(formData);
 
   const { data, error } = await supabase
     .from("rapports")
-    .insert({ ...readNewRecordId(formData), ...parsed.fields, created_by: user.id })
+    .insert({
+      ...readNewRecordId(formData),
+      ...parsed.fields,
+      est_test,
+      created_by: user.id,
+    })
     .select("id")
     .single();
 
@@ -192,13 +205,15 @@ export async function createRapport(
     return { error: "Impossible d'enregistrer les infractions du rapport." };
   }
 
-  const attached = await registerAttachmentRows(
-    supabase,
-    user.id,
-    "rapport",
-    data.id,
-    attachmentDrafts,
-  );
+  const attached = est_test
+    ? await discardTestUploads("rapport", data.id)
+    : await registerAttachmentRows(
+        supabase,
+        user.id,
+        "rapport",
+        data.id,
+        attachmentDrafts,
+      );
   if ("error" in attached) {
     // Même logique : la fiche est annulée, les fichiers restent dans le
     // stockage pour un nouvel essai avec le même identifiant.
@@ -263,12 +278,16 @@ export async function softDeleteRapport(
 
   const { data: rapport } = await supabase
     .from("rapports")
-    .select("created_by")
+    .select("created_by, est_test")
     .eq("id", id)
     .single();
 
   if (!rapport) {
     return { error: "Rapport introuvable." };
+  }
+  // Un test ne passe jamais par la corbeille (voir deleteTestRapport).
+  if (rapport.est_test) {
+    return { error: "Un test se supprime définitivement, sans corbeille." };
   }
 
   if (rapport.created_by !== user.id && profile.role !== "admin") {
@@ -343,11 +362,17 @@ export async function createPlainte(
   const tooLong = checkTextLimits("plaintes", parsed.fields);
   if (tooLong) return { error: tooLong };
 
+  const est_test = isTest(formData);
   const attachmentDrafts = readAttachmentDrafts(formData);
 
   const { data, error } = await supabase
     .from("plaintes")
-    .insert({ ...readNewRecordId(formData), ...parsed.fields, created_by: user.id })
+    .insert({
+      ...readNewRecordId(formData),
+      ...parsed.fields,
+      est_test,
+      created_by: user.id,
+    })
     .select("id")
     .single();
 
@@ -355,13 +380,15 @@ export async function createPlainte(
     return { error: "Impossible de créer la plainte." };
   }
 
-  const attached = await registerAttachmentRows(
-    supabase,
-    user.id,
-    "plainte",
-    data.id,
-    attachmentDrafts,
-  );
+  const attached = est_test
+    ? await discardTestUploads("plainte", data.id)
+    : await registerAttachmentRows(
+        supabase,
+        user.id,
+        "plainte",
+        data.id,
+        attachmentDrafts,
+      );
   if ("error" in attached) {
     // Plainte tout juste créée, encore référencée nulle part : annulée,
     // les fichiers restent dans le stockage pour un nouvel essai.
@@ -417,12 +444,16 @@ export async function softDeletePlainte(
 
   const { data: plainte } = await supabase
     .from("plaintes")
-    .select("created_by")
+    .select("created_by, est_test")
     .eq("id", id)
     .single();
 
   if (!plainte) {
     return { error: "Plainte introuvable." };
+  }
+  // Un test ne passe jamais par la corbeille (voir deleteTestPlainte).
+  if (plainte.est_test) {
+    return { error: "Un test se supprime définitivement, sans corbeille." };
   }
 
   if (plainte.created_by !== user.id && profile.role !== "admin") {
@@ -443,4 +474,65 @@ export async function softDeletePlainte(
 
   revalidatePath("/archives/plaintes");
   redirect("/archives/plaintes");
+}
+
+// ====================================================================
+// Mode test (entraînement)
+// ====================================================================
+
+// Un test n'a pas de pièces jointes : fichiers éventuellement déposés
+// avant de cocher « Mode test » supprimés (la base refuse de les
+// rattacher à un test).
+async function discardTestUploads(
+  type: "rapport" | "plainte",
+  id: string,
+): Promise<{ attachments: [] }> {
+  await removeParentFiles(type, id);
+  return { attachments: [] };
+}
+
+// Suppression DÉFINITIVE d'un test, sans corbeille. La RLS
+// (supabase/archives_mode_test.sql) ne l'autorise qu'au créateur du test
+// ou à un admin, et jamais sur un document officiel.
+async function deleteTest(
+  table: "rapports" | "plaintes",
+  formData: FormData,
+): Promise<ActionResult> {
+  const { supabase } = await requireActiveUser();
+
+  const id = text(formData, "id");
+  if (!id) {
+    return { error: "Identifiant manquant." };
+  }
+
+  const { data, error } = await supabase
+    .from(table)
+    .delete()
+    .eq("id", id)
+    .eq("est_test", true)
+    .select("id");
+
+  if (error) {
+    return { error: "Suppression impossible." };
+  }
+  if (!data || data.length === 0) {
+    return {
+      error: "Seul le créateur du test ou un administrateur peut le supprimer.",
+    };
+  }
+
+  revalidatePath(`/archives/${table}`);
+  redirect(`/archives/${table}`);
+}
+
+export async function deleteTestRapport(
+  formData: FormData,
+): Promise<ActionResult> {
+  return deleteTest("rapports", formData);
+}
+
+export async function deleteTestPlainte(
+  formData: FormData,
+): Promise<ActionResult> {
+  return deleteTest("plaintes", formData);
 }

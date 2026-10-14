@@ -11,8 +11,15 @@ export default async function ArchivesPage() {
   const [profileResult, investigations, rapports, plaintes] = await Promise.all([
     supabase.from("profiles").select("role, unite").eq("id", user!.id).single(),
     supabase.from("investigations").select("id", { count: "exact", head: true }),
-    supabase.from("rapports").select("id", { count: "exact", head: true }),
-    supabase.from("plaintes").select("id", { count: "exact", head: true }),
+    // Les tests (mode entraînement) ne sont jamais comptabilisés.
+    supabase
+      .from("rapports")
+      .select("id", { count: "exact", head: true })
+      .eq("est_test", false),
+    supabase
+      .from("plaintes")
+      .select("id", { count: "exact", head: true })
+      .eq("est_test", false),
   ]);
 
   // SASP / DOJ : pas de section Enquêtes.

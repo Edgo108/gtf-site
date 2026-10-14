@@ -1,10 +1,13 @@
 import Link from "next/link";
-import { formatNumero } from "@/lib/supabase/archives-types";
+import { archiveReference } from "@/lib/supabase/archives-types";
+import { TestBadge } from "./TestBadge";
 import { formatParisDateTime } from "@/lib/datetime";
 
 export type ArchiveListRow = {
   id: string;
-  numero: number;
+  numero: number | null;
+  numero_test: number | null;
+  est_test: boolean;
   date_redaction: string;
   agentPseudo: string;
   // Nom du suspect (rapport) ou de la victime (plainte).
@@ -45,12 +48,17 @@ export function ArchiveListTable({
               className="border-b border-gtf-border transition-colors last:border-0 hover:bg-gtf-panel-alt/60"
             >
               <td data-label="N°" className="px-4 py-3">
-                <Link
-                  href={`${basePath}/${row.id}`}
-                  className="font-mono font-semibold text-gtf-blue-hover hover:underline"
-                >
-                  #{formatNumero(row.numero)}
-                </Link>
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`${basePath}/${row.id}`}
+                    className={`font-mono font-semibold hover:underline ${
+                      row.est_test ? "text-gtf-violet" : "text-gtf-blue-hover"
+                    }`}
+                  >
+                    {archiveReference(row)}
+                  </Link>
+                  {row.est_test && <TestBadge />}
+                </span>
               </td>
               <td
                 data-label="Rédigé le"

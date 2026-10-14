@@ -25,6 +25,8 @@ export default {
           green: "#4B8B6B",
           amber: "#C99A3E",
           orange: "#D9772E",
+          // Mode test des archives (distinct des catégories A/B/C).
+          violet: "#9A7BE0",
         },
       },
       fontFamily: {

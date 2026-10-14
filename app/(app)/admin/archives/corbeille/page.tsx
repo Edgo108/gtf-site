@@ -10,7 +10,7 @@ import {
   restoreRapport,
 } from "./actions";
 import {
-  formatNumero,
+  archiveReference,
   type Plainte,
   type Rapport,
 } from "@/lib/supabase/archives-types";
@@ -43,8 +43,12 @@ export default async function CorbeilleArchivesPage() {
     ...(plaintes ?? []).map((p) => p.agent_redacteur_id),
   ]);
   const pseudo = (agentId: string) => pseudoById.get(agentId) ?? "Agent inconnu";
-  const numero = (n: number) => (
-    <span className="font-mono">#{formatNumero(n)}</span>
+  // Seuls des documents officiels passent par la corbeille (un test est
+  // supprimé définitivement).
+  const reference = (doc: { numero: number | null }) =>
+    archiveReference({ ...doc, numero_test: null, est_test: false });
+  const numero = (doc: { numero: number | null }) => (
+    <span className="font-mono">{reference(doc)}</span>
   );
 
   return (
@@ -64,9 +68,9 @@ export default async function CorbeilleArchivesPage() {
           columns={["N°", "Agent rédacteur", "Suspect"]}
           rows={(rapports ?? []).map((r) => ({
             id: r.id,
-            name: `#${formatNumero(r.numero)}`,
+            name: reference(r),
             deletedAt: r.deleted_at,
-            cells: [numero(r.numero), pseudo(r.agent_redacteur_id), r.nom_suspect || "—"],
+            cells: [numero(r), pseudo(r.agent_redacteur_id), r.nom_suspect || "—"],
           }))}
           restore={restoreRapport}
           destroy={permanentlyDeleteRapport}
@@ -85,9 +89,9 @@ export default async function CorbeilleArchivesPage() {
           deletedLabel="Supprimée le"
           rows={(plaintes ?? []).map((p) => ({
             id: p.id,
-            name: `#${formatNumero(p.numero)}`,
+            name: reference(p),
             deletedAt: p.deleted_at,
-            cells: [numero(p.numero), pseudo(p.agent_redacteur_id), p.nom_victime || "—"],
+            cells: [numero(p), pseudo(p.agent_redacteur_id), p.nom_victime || "—"],
           }))}
           restore={restorePlainte}
           destroy={permanentlyDeletePlainte}

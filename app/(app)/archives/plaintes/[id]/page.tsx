@@ -7,9 +7,18 @@ import { formatParisDateTime } from "@/lib/datetime";
 import { Panel } from "@/components/ui/Panel";
 import { ArchiveField, EmptyValue } from "@/components/archives/ArchiveField";
 import { TrashButton } from "@/components/ui/TrashButton";
-import { softDeletePlainte } from "@/app/(app)/archives/actions";
+import {
+  deleteTestPlainte,
+  softDeletePlainte,
+} from "@/app/(app)/archives/actions";
 import { Signature } from "@/components/archives/Signature";
-import { formatNumero, type Plainte } from "@/lib/supabase/archives-types";
+import {
+  archiveReference,
+  TEST_MODE_EXPLANATION,
+  type Plainte,
+} from "@/lib/supabase/archives-types";
+import { TestBadge } from "@/components/archives/TestBadge";
+import { ActionButton } from "@/components/ui/ActionButton";
 import { btn } from "@/lib/ui/styles";
 import { loadAttachments } from "@/lib/attachments/server";
 import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
@@ -42,7 +51,7 @@ export default async function PlainteDetailPage({
 
   const [pseudoById, attachments] = await Promise.all([
     getPseudoMap([plainte.agent_redacteur_id, plainte.created_by]),
-    loadAttachments(supabase, "plainte", plainte.id),
+    plainte.est_test ? [] : loadAttachments(supabase, "plainte", plainte.id),
   ]);
   const pseudo = (agentId: string | null) =>
     (agentId && pseudoById.get(agentId)) || "Agent inconnu";
@@ -60,8 +69,9 @@ export default async function PlainteDetailPage({
       </Link>
       <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
-            Plainte #{formatNumero(plainte.numero)}
+          <h1 className="flex flex-wrap items-center gap-3 font-display text-2xl font-bold uppercase tracking-wide">
+            Plainte {archiveReference(plainte)}
+            {plainte.est_test && <TestBadge />}
           </h1>
           <p className="mt-1 font-mono text-xs text-gtf-text-muted">
             Saisie par {pseudo(plainte.created_by)} · modifiée le{" "}
@@ -75,7 +85,18 @@ export default async function PlainteDetailPage({
           >
             Modifier
           </Link>
-          {canDelete && (
+          {canDelete && plainte.est_test && (
+            <ActionButton
+              action={deleteTestPlainte}
+              fields={{ id: plainte.id }}
+              confirm="Supprimer définitivement ce test ? Cette action est irréversible."
+              success="Test supprimé"
+              variant="danger"
+            >
+              Supprimer
+            </ActionButton>
+          )}
+          {canDelete && !plainte.est_test && (
             <TrashButton
               action={softDeletePlainte}
               id={plainte.id}
@@ -85,6 +106,12 @@ export default async function PlainteDetailPage({
           )}
         </div>
       </div>
+
+      {plainte.est_test && (
+        <p className="mt-4 rounded-md border border-gtf-violet/60 bg-gtf-violet/10 px-4 py-3 text-sm text-gtf-violet">
+          {TEST_MODE_EXPLANATION}
+        </p>
+      )}
 
       <Panel title="Plainte" className="mt-6">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -128,14 +155,17 @@ export default async function PlainteDetailPage({
         </div>
       </Panel>
 
-      <div className="mt-4">
-        <AttachmentsSection
-          parentType="plainte"
-          parentId={plainte.id}
-          initial={attachments}
-          canEdit
-        />
-      </div>
+      {/* Un test n'a pas de pièces jointes. */}
+      {!plainte.est_test && (
+        <div className="mt-4">
+          <AttachmentsSection
+            parentType="plainte"
+            parentId={plainte.id}
+            initial={attachments}
+            canEdit
+          />
+        </div>
+      )}
     </div>
   );
 }

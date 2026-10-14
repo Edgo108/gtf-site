@@ -4,7 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getPseudoMap } from "@/lib/archives/agents";
 import { ArchiveListTable } from "@/components/archives/ArchiveListTable";
-import type { Rapport } from "@/lib/supabase/archives-types";
+import {
+  readArchiveTypeFilter,
+  type Rapport,
+} from "@/lib/supabase/archives-types";
+import { ArchiveTypeFilter } from "@/components/archives/ArchiveTypeFilter";
 import { btn } from "@/lib/ui/styles";
 import { isOutOfRange, pageRange } from "@/lib/pagination";
 import { Pagination } from "@/components/ui/Pagination";
@@ -12,9 +16,11 @@ import { Pagination } from "@/components/ui/Pagination";
 export default async function RapportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; type?: string }>;
 }) {
-  const { page, from, to } = pageRange((await searchParams).page);
+  const params = await searchParams;
+  const { page, from, to } = pageRange(params.page);
+  const type = readArchiveTypeFilter(params.type);
   const supabase = await createClient();
   const user = await getCurrentUser();
 
@@ -24,21 +30,45 @@ export default async function RapportsPage({
     .eq("id", user!.id)
     .single();
 
-  const { data: rapports, error, count } = await supabase
+  // Officiels et tests mélangés : tri par date de création (les tests
+  // n'ont pas de numéro officiel).
+  let query = supabase
     .from("rapports")
-    .select("id, numero, date_redaction, agent_redacteur_id, nom_suspect", {
-      count: "exact",
-    })
-    .order("numero", { ascending: false })
-    .range(from, to)
-    .returns<
-      Pick<
-        Rapport,
-        "id" | "numero" | "date_redaction" | "agent_redacteur_id" | "nom_suspect"
-      >[]
-    >();
+    .select(
+      "id, numero, numero_test, est_test, date_redaction, agent_redacteur_id, nom_suspect",
+      { count: "exact" },
+    )
+    .order("created_at", { ascending: false });
+  if (type) query = query.eq("est_test", type === "tests");
+
+  // Compteurs : les tests ne comptent jamais dans le total officiel.
+  const [{ data: rapports, error, count }, officialResult, testResult] =
+    await Promise.all([
+      query.range(from, to).returns<
+        Pick<
+          Rapport,
+          | "id"
+          | "numero"
+          | "numero_test"
+          | "est_test"
+          | "date_redaction"
+          | "agent_redacteur_id"
+          | "nom_suspect"
+        >[]
+      >(),
+      supabase
+        .from("rapports")
+        .select("id", { count: "exact", head: true })
+        .eq("est_test", false),
+      supabase
+        .from("rapports")
+        .select("id", { count: "exact", head: true })
+        .eq("est_test", true),
+    ]);
+  const officialCount = officialResult.count ?? 0;
+  const testCount = testResult.count ?? 0;
   if (isOutOfRange(error)) {
-    redirect("/archives/rapports");
+    redirect(type ? `/archives/rapports?type=${type}` : "/archives/rapports");
   }
   if (error) {
     throw new Error("Chargement des rapports impossible.");
@@ -75,8 +105,20 @@ export default async function RapportsPage({
         </div>
       </div>
       <p className="mt-1 font-mono text-sm text-gtf-text-muted">
-        {count ?? rapports.length} rapport{(count ?? rapports.length) > 1 ? "s" : ""}
+        {officialCount > 1
+          ? `${officialCount} rapports officiels`
+          : `${officialCount} rapport officiel`}
+        {testCount > 0 && (
+          <span className="text-gtf-violet">
+            {" "}
+            · {testCount} test{testCount > 1 ? "s" : ""} d&apos;entraînement
+          </span>
+        )}
       </p>
+
+      <div className="mt-4">
+        <ArchiveTypeFilter basePath="/archives/rapports" current={type} />
+      </div>
 
       <div className="mt-6">
         <ArchiveListTable
@@ -86,6 +128,8 @@ export default async function RapportsPage({
           rows={rapports.map((r) => ({
             id: r.id,
             numero: r.numero,
+            numero_test: r.numero_test,
+            est_test: r.est_test,
             date_redaction: r.date_redaction,
             agentPseudo: pseudoById.get(r.agent_redacteur_id) ?? "Agent inconnu",
             personne: r.nom_suspect,
@@ -93,7 +137,12 @@ export default async function RapportsPage({
         />
       </div>
 
-      <Pagination page={page} total={count ?? 0} basePath="/archives/rapports" />
+      <Pagination
+        page={page}
+        total={count ?? 0}
+        basePath="/archives/rapports"
+        params={{ type }}
+      />
     </div>
   );
 }
