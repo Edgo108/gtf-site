@@ -98,6 +98,8 @@ grant execute on function public.is_active_dispatcher() to authenticated;
 --     automatiquement « disponible » ;
 --   - updated_at / updated_by renseignés par la base, pas par le client.
 -- Le service_role (auth.uid() null) n'est pas contraint.
+-- ⚠ Redéfinie par dispatch_unit_statut.sql (statut par unité) : si ce
+-- fichier est relancé, relancer dispatch_unit_statut.sql ensuite.
 create or replace function public.agent_status_guard()
 returns trigger
 language plpgsql

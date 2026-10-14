@@ -20,6 +20,21 @@ export const SELF_STATUTS: readonly AgentStatut[] = [
   "en_intervention",
 ];
 
+// Statut d'une unité entière (null = aucun) : imposé à tous ses agents.
+export type UnitStatut = Exclude<AgentStatut, "en_attente_dispatch">;
+export const UNIT_STATUTS: readonly UnitStatut[] = [
+  "disponible",
+  "occupe",
+  "en_intervention",
+];
+
+export function isUnitStatut(value: unknown): value is UnitStatut {
+  return (
+    typeof value === "string" &&
+    (UNIT_STATUTS as readonly string[]).includes(value)
+  );
+}
+
 export const AGENT_STATUT_LABELS: Record<AgentStatut, string> = {
   en_attente_dispatch: "En attente de dispatch",
   disponible: "Disponible",
@@ -82,6 +97,7 @@ export type DispatchUnit = {
   id: string;
   nom: string;
   categorie_patrouille: CategoriePatrouille | null;
+  statut: UnitStatut | null;
 };
 
 export type DispatchAgent = {

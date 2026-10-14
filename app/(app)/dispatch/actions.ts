@@ -6,6 +6,7 @@ import {
   isAgentStatut,
   isCategoriePatrouille,
   isDispatchExpired,
+  isUnitStatut,
   SELF_STATUTS,
   type AgentStatut,
   type DispatchAgent,
@@ -41,7 +42,7 @@ export async function getDispatchSnapshot(): Promise<DispatchSnapshot> {
     await Promise.all([
       supabase
         .from("dispatch_units")
-        .select("id, nom, categorie_patrouille")
+        .select("id, nom, categorie_patrouille, statut")
         .order("nom")
         .returns<DispatchUnit[]>(),
       supabase
@@ -152,6 +153,10 @@ export async function setAgentStatut(
     .eq("agent_id", agentId)
     .select("id");
 
+  if (error?.message.startsWith("Statut imposé")) {
+    // Refus du trigger : l'unité de l'agent a un statut défini.
+    return { error: error.message };
+  }
   if (error || !data || data.length === 0) {
     if (agentId === user.id && !SELF_STATUTS.includes(statut)) {
       return { error: "Vous ne pouvez pas vous remettre en attente de dispatch." };
@@ -168,8 +173,9 @@ export async function setAgentStatut(
 }
 
 // Affectation à une unité (glisser-déposer du dispatcheur). `uniteId` null
-// = retour en attente de dispatch. Le passage automatique à « disponible »
-// depuis l'attente est fait par le trigger en base.
+// = retour en attente de dispatch. Le statut d'arrivée est posé par le
+// trigger en base : celui de l'unité si elle en a un, sinon passage
+// automatique à « disponible » depuis l'attente.
 export async function assignAgentUnit(
   agentId: string,
   uniteId: string | null,
@@ -214,6 +220,37 @@ export async function setUnitCategorie(
     return {
       error:
         "Seuls le dispatcheur, un admin ou un agent de l'unité peuvent changer sa catégorie.",
+    };
+  }
+  await touchDispatch(supabase, user.id);
+  return {};
+}
+
+// Statut d'une unité entière (dispatcheur actif / admin). "" = aucun :
+// les agents gardent leur statut et en reprennent la main. Sinon tous les
+// agents de l'unité prennent ce statut, dans la même transaction
+// (fonction SQL set_dispatch_unit_statut).
+export async function setUnitStatut(
+  unitId: string,
+  statut: string,
+): Promise<ActionResult> {
+  const { supabase, user } = await requireActiveUser();
+
+  const value = statut === "" ? null : statut;
+  if (value !== null && !isUnitStatut(value)) {
+    return { error: "Statut d'unité invalide." };
+  }
+
+  const { error } = await supabase.rpc("set_dispatch_unit_statut", {
+    p_unit_id: unitId,
+    p_statut: value,
+  });
+  if (error) {
+    return {
+      error:
+        error.code === "42501"
+          ? "Seul le dispatcheur actif ou un admin peut changer le statut d'une unité."
+          : "Impossible de changer le statut de l'unité.",
     };
   }
   await touchDispatch(supabase, user.id);
@@ -286,7 +323,8 @@ export async function lacherDispatch(): Promise<ActionResult> {
 }
 
 // « Reset dispatch » : tous les agents en service repassent en attente sans
-// unité, et toutes les unités perdent leur catégorie de patrouille. Le
+// unité, et toutes les unités perdent leur catégorie de patrouille et leur
+// statut, en une seule transaction (fonction SQL reset_dispatch). Le
 // rôle de dispatcheur n'est pas touché. Réservé au dispatcheur actif —
 // pas à l'admin qui ne l'est pas (vérifié par la fonction SQL
 // is_active_dispatcher(), qui ne tient pas compte du rôle admin).
@@ -298,19 +336,9 @@ export async function resetDispatch(): Promise<ActionResult> {
     return { error: "Seul le dispatcheur actif peut réinitialiser le dispatch." };
   }
 
-  const [agentsReset, unitsReset] = await Promise.all([
-    supabase
-      .from("agent_status")
-      .update({ statut: "en_attente_dispatch", unite_id: null })
-      .not("id", "is", null),
-    supabase
-      .from("dispatch_units")
-      .update({ categorie_patrouille: null })
-      .not("id", "is", null),
-  ]);
-
-  if (agentsReset.error || unitsReset.error) {
-    return { error: "Réinitialisation incomplète, réessayez." };
+  const { error } = await supabase.rpc("reset_dispatch");
+  if (error) {
+    return { error: "Réinitialisation impossible, réessayez." };
   }
   await touchDispatch(supabase, user.id);
   return {};

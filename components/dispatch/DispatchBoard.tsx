@@ -22,6 +22,7 @@ import {
   resetDispatch,
   setAgentStatut,
   setUnitCategorie,
+  setUnitStatut,
 } from "@/app/(app)/dispatch/actions";
 import {
   AGENT_STATUTS,
@@ -30,6 +31,7 @@ import {
   CATEGORIE_PATROUILLE_LABELS,
   DISPATCH_TIMEOUT_MS,
   SELF_STATUTS,
+  UNIT_STATUTS,
   isDispatchExpired,
   type DispatchAgent,
   type DispatchSnapshot,
@@ -136,6 +138,10 @@ export function DispatchBoard({
     dispatcherActive && dispatcher?.agent_id === currentUserId;
   const canDispatch = isDispatcher || isAdmin;
   const me = agents.find((a) => a.agent_id === currentUserId) ?? null;
+  // Unité à statut défini : l'agent ne choisit plus son statut lui-même
+  // (règle appliquée aussi par la base).
+  const myUnit = units.find((u) => u.id === me?.unite_id) ?? null;
+  const imposedByUnit = !canDispatch && myUnit?.statut ? myUnit.nom : null;
 
   // Activité du dispatcheur : tant qu'il interagit avec la page, le rôle
   // est renouvelé (au plus une fois par minute).
@@ -244,7 +250,12 @@ export function DispatchBoard({
                 <select
                   aria-label="Mon statut"
                   value={me.statut}
-                  disabled={pending}
+                  disabled={pending || imposedByUnit !== null}
+                  title={
+                    imposedByUnit
+                      ? `Statut imposé par l'unité ${imposedByUnit}`
+                      : undefined
+                  }
                   onChange={(e) =>
                     act(() => setAgentStatut(currentUserId, e.target.value))
                   }
@@ -256,6 +267,11 @@ export function DispatchBoard({
                     </option>
                   ))}
                 </select>
+              )}
+              {imposedByUnit && (
+                <span className="basis-full font-mono text-[11px] text-gtf-amber">
+                  Statut imposé par l&apos;unité {imposedByUnit}
+                </span>
               )}
               <button
                 type="button"
@@ -337,7 +353,7 @@ export function DispatchBoard({
               onClick={() => {
                 if (
                   !window.confirm(
-                    "Reset dispatch : tous les agents en service repassent en attente de dispatch (sans unité) et toutes les catégories de patrouille sont effacées. Continuer ?",
+                    "Reset dispatch : tous les agents en service repassent en attente de dispatch (sans unité), et toutes les catégories de patrouille et tous les statuts d'unité sont effacés. Continuer ?",
                   )
                 ) {
                   return;
@@ -561,12 +577,21 @@ export function DispatchBoard({
                     agents={agents.filter((a) => a.unite_id === unit.id)}
                     canDrag={canDispatch}
                     canEditCategorie={canDispatch || me?.unite_id === unit.id}
+                    canEditStatut={canDispatch}
                     highlighted={dragOverId === unit.id}
                     disabled={pending}
                     dropProps={dropProps(unit.id)}
                     onDragStart={onDragStart}
                     onCategorie={(categorie) =>
                       act(() => setUnitCategorie(unit.id, categorie))
+                    }
+                    onStatut={(statut) =>
+                      act(
+                        () => setUnitStatut(unit.id, statut),
+                        statut
+                          ? `Unité ${unit.nom} : ${AGENT_STATUT_LABELS[statut as keyof typeof AGENT_STATUT_LABELS]}`
+                          : `Unité ${unit.nom} : statut retiré`,
+                      )
                     }
                   />
                 ))}
@@ -676,16 +701,20 @@ function UnitCard({
   agents,
   canDrag,
   canEditCategorie,
+  canEditStatut,
   highlighted,
   disabled,
   dropProps,
   onDragStart,
   onCategorie,
+  onStatut,
 }: {
   unit: DispatchUnit;
   agents: DispatchAgent[];
   canDrag: boolean;
   canEditCategorie: boolean;
+  // Statut d'unité : dispatcheur actif / admin uniquement.
+  canEditStatut: boolean;
   highlighted: boolean;
   disabled: boolean;
   dropProps: {
@@ -695,10 +724,11 @@ function UnitCard({
   };
   onDragStart: (event: DragEvent, agentId: string) => void;
   onCategorie: (categorie: string) => void;
+  onStatut: (statut: string) => void;
 }) {
   return (
     <DropBox highlighted={highlighted} {...dropProps}>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 font-display text-base font-semibold uppercase tracking-wide text-gtf-text">
           <CategorieIcon
             categorie={unit.categorie_patrouille}
@@ -709,28 +739,48 @@ function UnitCard({
             {agents.length}
           </span>
         </p>
-        {canEditCategorie ? (
-          <select
-            aria-label={`Catégorie de patrouille de l'unité ${unit.nom}`}
-            value={unit.categorie_patrouille ?? ""}
-            disabled={disabled}
-            onChange={(e) => onCategorie(e.target.value)}
-            className={fieldCompactClass}
-          >
-            <option value="">— Catégorie —</option>
-            {CATEGORIES_PATROUILLE.map((c) => (
-              <option key={c} value={c}>
-                {CATEGORIE_PATROUILLE_LABELS[c]}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span className="font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
-            {unit.categorie_patrouille
-              ? CATEGORIE_PATROUILLE_LABELS[unit.categorie_patrouille]
-              : "—"}
-          </span>
-        )}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {canEditStatut ? (
+            <select
+              aria-label={`Statut de l'unité ${unit.nom}`}
+              value={unit.statut ?? ""}
+              disabled={disabled}
+              onChange={(e) => onStatut(e.target.value)}
+              className={fieldCompactClass}
+            >
+              <option value="">Aucun statut</option>
+              {UNIT_STATUTS.map((s) => (
+                <option key={s} value={s}>
+                  {AGENT_STATUT_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          ) : (
+            unit.statut && <AgentStatutBadge statut={unit.statut} />
+          )}
+          {canEditCategorie ? (
+            <select
+              aria-label={`Catégorie de patrouille de l'unité ${unit.nom}`}
+              value={unit.categorie_patrouille ?? ""}
+              disabled={disabled}
+              onChange={(e) => onCategorie(e.target.value)}
+              className={fieldCompactClass}
+            >
+              <option value="">— Catégorie —</option>
+              {CATEGORIES_PATROUILLE.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORIE_PATROUILLE_LABELS[c]}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
+              {unit.categorie_patrouille
+                ? CATEGORIE_PATROUILLE_LABELS[unit.categorie_patrouille]
+                : "—"}
+            </span>
+          )}
+        </div>
       </div>
       {agents.length > 0 && (
         <AgentChips
