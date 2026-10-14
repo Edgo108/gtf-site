@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { Panel } from "@/components/ui/Panel";
@@ -10,7 +10,7 @@ import {
   LabCategorieBadge,
   LabStatutBadge,
 } from "@/components/zones/LabBadges";
-import { uniteCanWrite } from "@/lib/permissions";
+import { canAccessEnquetes, uniteCanWrite } from "@/lib/permissions";
 import type {
   Investigation,
   InvestigationHistoryEntry,
@@ -20,7 +20,7 @@ import { btn } from "@/lib/ui/styles";
 import { formatParisDateTime } from "@/lib/datetime";
 import { fetchCasierCode, INVESTIGATION_COLUMNS } from "@/lib/investigations/casier";
 import { TRASHED_ORGANISATION_LABEL } from "@/lib/supabase/gangs-types";
-import { canReadAttachments, loadAttachments } from "@/lib/attachments/server";
+import { loadAttachments } from "@/lib/attachments/server";
 import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
 
 export default async function EnqueteDetailPage({
@@ -38,6 +38,10 @@ export default async function EnqueteDetailPage({
     .select("role, unite")
     .eq("id", user!.id)
     .single();
+
+  if (!canAccessEnquetes(profile ?? {})) {
+    redirect("/archives");
+  }
 
   const canWrite = uniteCanWrite("enquetes", profile ?? {});
 
@@ -72,11 +76,7 @@ export default async function EnqueteDetailPage({
     : { data: [] as { id: string; nom: string }[] };
   const labOrgNomById = new Map((labOrgs ?? []).map((g) => [g.id, g.nom]));
 
-  // SASP / DOJ : aucun accès aux pièces jointes des enquêtes.
-  const showAttachments = canReadAttachments("investigation", profile ?? {});
-  const attachments = showAttachments
-    ? await loadAttachments(supabase, "investigation", id)
-    : [];
+  const attachments = await loadAttachments(supabase, "investigation", id);
 
   const canDelete =
     canWrite &&
@@ -190,16 +190,14 @@ export default async function EnqueteDetailPage({
         </Panel>
       )}
 
-      {showAttachments && (
-        <div className="mt-4">
-          <AttachmentsSection
-            parentType="investigation"
-            parentId={investigation.id}
-            initial={attachments}
-            canEdit={canWrite}
-          />
-        </div>
-      )}
+      <div className="mt-4">
+        <AttachmentsSection
+          parentType="investigation"
+          parentId={investigation.id}
+          initial={attachments}
+          canEdit={canWrite}
+        />
+      </div>
 
       <Panel title="Historique" className="mt-4">
         {history && history.length > 0 ? (

@@ -16,6 +16,7 @@ import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
 import { withSignedPhotos } from "@/lib/wanted/photos";
 import type { Announcement } from "@/lib/supabase/announcements-types";
 import { formatParisDateTime } from "@/lib/datetime";
+import { canAccessEnquetes } from "@/lib/permissions";
 
 type RecentInvestigation = Pick<
   Investigation,
@@ -30,9 +31,11 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("pseudo, grade")
+    .select("pseudo, grade, role, unite")
     .eq("id", user!.id)
-    .single<Pick<Profile, "pseudo" | "grade">>();
+    .single<Pick<Profile, "pseudo" | "grade" | "role" | "unite">>();
+  // SASP / DOJ : pas de bloc Enquêtes (la RLS ne leur renverrait rien).
+  const showEnquetes = canAccessEnquetes(profile ?? {});
 
   const [
     enCoursResult,
@@ -121,60 +124,66 @@ export default async function DashboardPage() {
         Bienvenue, {profile?.grade} {profile?.pseudo}
       </h1>
 
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:max-w-md">
-        <div className="rounded-md border border-gtf-border bg-gtf-panel p-4">
-          <p className="font-mono text-3xl font-bold text-gtf-blue-hover">
-            {enCoursCount}
-          </p>
-          <p className="mt-1 font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
-            Enquête{enCoursCount > 1 ? "s" : ""} en cours
-          </p>
-        </div>
-        <div className="rounded-md border border-gtf-border bg-gtf-panel p-4">
-          <p className="font-mono text-3xl font-bold text-gtf-text">
-            {totalCount}
-          </p>
-          <p className="mt-1 font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
-            Enquête{totalCount > 1 ? "s" : ""} au total
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Panel title="Dernières enquêtes modifiées">
-          {recentInvestigations.length > 0 ? (
-            <ul className="flex flex-col divide-y divide-gtf-border">
-              {recentInvestigations.map((investigation) => (
-                <li key={investigation.id}>
-                  <Link
-                    href={`/enquetes/${investigation.id}`}
-                    className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0 hover:text-gtf-blue-hover"
-                  >
-                    <span className="truncate text-sm">
-                      {investigation.titre}
-                    </span>
-                    <span className="flex shrink-0 items-center gap-3">
-                      <StatutBadge statut={investigation.statut} />
-                      <span className="font-mono text-xs text-gtf-text-muted">
-                        {formatParisDateTime(investigation.updated_at)}
-                      </span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-gtf-text-muted">
-              Aucune enquête pour l&apos;instant.
+      {showEnquetes && (
+        <div className="mt-6 grid grid-cols-2 gap-4 sm:max-w-md">
+          <div className="rounded-md border border-gtf-border bg-gtf-panel p-4">
+            <p className="font-mono text-3xl font-bold text-gtf-blue-hover">
+              {enCoursCount}
             </p>
-          )}
-          <Link
-            href="/enquetes"
-            className="mt-3 inline-block font-mono text-xs uppercase tracking-wider text-gtf-blue-hover hover:underline"
-          >
-            Voir toutes les enquêtes →
-          </Link>
-        </Panel>
+            <p className="mt-1 font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
+              Enquête{enCoursCount > 1 ? "s" : ""} en cours
+            </p>
+          </div>
+          <div className="rounded-md border border-gtf-border bg-gtf-panel p-4">
+            <p className="font-mono text-3xl font-bold text-gtf-text">
+              {totalCount}
+            </p>
+            <p className="mt-1 font-mono text-xs uppercase tracking-wider text-gtf-text-muted">
+              Enquête{totalCount > 1 ? "s" : ""} au total
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={`mt-6 grid gap-6 ${showEnquetes ? "lg:grid-cols-2" : ""}`}
+      >
+        {showEnquetes && (
+          <Panel title="Dernières enquêtes modifiées">
+            {recentInvestigations.length > 0 ? (
+              <ul className="flex flex-col divide-y divide-gtf-border">
+                {recentInvestigations.map((investigation) => (
+                  <li key={investigation.id}>
+                    <Link
+                      href={`/enquetes/${investigation.id}`}
+                      className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0 hover:text-gtf-blue-hover"
+                    >
+                      <span className="truncate text-sm">
+                        {investigation.titre}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-3">
+                        <StatutBadge statut={investigation.statut} />
+                        <span className="font-mono text-xs text-gtf-text-muted">
+                          {formatParisDateTime(investigation.updated_at)}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gtf-text-muted">
+                Aucune enquête pour l&apos;instant.
+              </p>
+            )}
+            <Link
+              href="/enquetes"
+              className="mt-3 inline-block font-mono text-xs uppercase tracking-wider text-gtf-blue-hover hover:underline"
+            >
+              Voir toutes les enquêtes →
+            </Link>
+          </Panel>
+        )}
 
         <Panel title="Mandats de recherche actifs">
           {activeWanted.length > 0 ? (

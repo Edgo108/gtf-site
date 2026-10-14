@@ -10,7 +10,7 @@ import { MarkCapturedButton } from "@/components/wanted/MarkCapturedButton";
 import { TrashButton } from "@/components/ui/TrashButton";
 import { deleteWantedNotice } from "@/app/(app)/mandats/actions";
 import { normalizeName, parseSuspectNames } from "@/lib/investigations/suspects";
-import { uniteCanWrite } from "@/lib/permissions";
+import { canAccessEnquetes, uniteCanWrite } from "@/lib/permissions";
 import type { WantedNotice } from "@/lib/supabase/wanted-notices-types";
 import { withSignedPhotos } from "@/lib/wanted/photos";
 import { btn } from "@/lib/ui/styles";
@@ -53,9 +53,10 @@ export default async function MandatDetailPage({
     organisationNom = gang?.nom ?? null;
   }
 
-  const { data: investigations } = await supabase
-    .from("investigations")
-    .select("id, titre, suspects");
+  const showInvestigations = canAccessEnquetes(profile ?? {});
+  const { data: investigations } = showInvestigations
+    ? await supabase.from("investigations").select("id, titre, suspects")
+    : { data: [] as { id: string; titre: string; suspects: string }[] };
 
   const target = normalizeName(notice.nom_suspect);
   const linkedInvestigations = (investigations ?? []).filter((investigation) =>
@@ -124,26 +125,28 @@ export default async function MandatDetailPage({
         </p>
       </Panel>
 
-      <Panel title="Enquêtes liées" className="mt-6">
-        {linkedInvestigations.length > 0 ? (
-          <ul className="flex flex-col gap-2">
-            {linkedInvestigations.map((investigation) => (
-              <li key={investigation.id}>
-                <Link
-                  href={`/enquetes/${investigation.id}`}
-                  className="text-sm text-gtf-blue-hover underline"
-                >
-                  {investigation.titre}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-gtf-text-muted">
-            Aucune enquête liée à ce suspect pour l&apos;instant.
-          </p>
-        )}
-      </Panel>
+      {showInvestigations && (
+        <Panel title="Enquêtes liées" className="mt-6">
+          {linkedInvestigations.length > 0 ? (
+            <ul className="flex flex-col gap-2">
+              {linkedInvestigations.map((investigation) => (
+                <li key={investigation.id}>
+                  <Link
+                    href={`/enquetes/${investigation.id}`}
+                    className="text-sm text-gtf-blue-hover underline"
+                  >
+                    {investigation.titre}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gtf-text-muted">
+              Aucune enquête liée à ce suspect pour l&apos;instant.
+            </p>
+          )}
+        </Panel>
+      )}
     </div>
   );
 }

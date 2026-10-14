@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { InvestigationCard } from "@/components/investigations/InvestigationCard";
 import { SearchFilterBar } from "@/components/investigations/SearchFilterBar";
-import { uniteCanWrite } from "@/lib/permissions";
+import { canAccessEnquetes, uniteCanWrite } from "@/lib/permissions";
 import type { Investigation } from "@/lib/supabase/investigations-types";
 import { btn } from "@/lib/ui/styles";
 import { INVESTIGATION_COLUMNS } from "@/lib/investigations/casier";
@@ -28,6 +28,11 @@ export default async function EnquetesPage({
     .select("role, unite")
     .eq("id", user!.id)
     .single();
+
+  // SASP / DOJ : aucun accès à la section (la RLS ne leur renvoie rien).
+  if (!canAccessEnquetes(profile ?? {})) {
+    redirect("/archives");
+  }
 
   const canWrite = uniteCanWrite("enquetes", profile ?? {});
 

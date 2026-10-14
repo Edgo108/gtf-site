@@ -30,8 +30,8 @@ export type PermissionSection =
   | "annonces";
 
 // Matrice d'ÉCRITURE (création / modification / suppression) par unité.
-// La LECTURE est toujours autorisée pour un agent actif, quelle que soit
-// l'unité — elle n'apparaît donc pas ici.
+// La LECTURE est autorisée pour un agent actif quelle que soit l'unité,
+// sauf la section Enquêtes (voir canAccessEnquetes).
 const WRITE_MATRIX: Record<Unite, Record<PermissionSection, boolean>> = {
   ID: { enquetes: true, mandats: true, gangs: true, zones: true, annonces: true },
   GTF: { enquetes: true, mandats: true, gangs: true, zones: true, annonces: true },
@@ -93,6 +93,16 @@ const ANNOUNCEMENT_AUTHOR_GRADES = [
 
 export function canAuthorAnnouncements(grade?: string | null): boolean {
   return ANNOUNCEMENT_AUTHOR_GRADES.includes(grade ?? "");
+}
+
+// --- Section « Enquêtes » ----------------------------------------------
+// Lecture réservée aux unités ID / GTF / EM (et à l'admin) : SASP et DOJ
+// n'ont aucun accès aux enquêtes, ni à leur historique ni à leurs pièces
+// jointes. Miroir de public.unite_peut_lire_enquetes()
+// (supabase/investigations_unite_lecture.sql).
+export function canAccessEnquetes(actor: ActorUnite): boolean {
+  if (actor.role === "admin") return true;
+  return actor.unite === "ID" || actor.unite === "GTF" || actor.unite === "EM";
 }
 
 // --- Section « Opérations » -------------------------------------------

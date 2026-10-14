@@ -1,15 +1,22 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { canAccessEnquetes } from "@/lib/permissions";
 
 // Point d'entrée « Archives » : regroupe Enquêtes, Rapports et Plaintes.
 export default async function ArchivesPage() {
   const supabase = await createClient();
+  const user = await getCurrentUser();
 
-  const [investigations, rapports, plaintes] = await Promise.all([
+  const [profileResult, investigations, rapports, plaintes] = await Promise.all([
+    supabase.from("profiles").select("role, unite").eq("id", user!.id).single(),
     supabase.from("investigations").select("id", { count: "exact", head: true }),
     supabase.from("rapports").select("id", { count: "exact", head: true }),
     supabase.from("plaintes").select("id", { count: "exact", head: true }),
   ]);
+
+  // SASP / DOJ : pas de section Enquêtes.
+  const showEnquetes = canAccessEnquetes(profileResult.data ?? {});
 
   const sections = [
     {
@@ -48,7 +55,9 @@ export default async function ArchivesPage() {
       </p>
 
       <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-        {sections.map((section) => (
+        {sections
+          .filter((section) => showEnquetes || section.href !== "/enquetes")
+          .map((section) => (
           <Link
             key={section.href}
             href={section.href}

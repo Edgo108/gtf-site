@@ -1,7 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPseudoMap } from "@/lib/archives/agents";
-import { isUnite, uniteCanWrite } from "@/lib/permissions";
+import { canAccessEnquetes, uniteCanWrite } from "@/lib/permissions";
 import {
   ATTACHMENT_DRAFTS_FIELD,
   ATTACHMENTS_BUCKET,
@@ -32,8 +32,7 @@ export function canReadAttachments(
   type: AttachmentParentType,
   actor: Actor,
 ): boolean {
-  if (type !== "investigation" || actor.role === "admin") return true;
-  return isUnite(actor.unite) && actor.unite !== "SASP" && actor.unite !== "DOJ";
+  return type === "investigation" ? canAccessEnquetes(actor) : true;
 }
 
 export function canWriteAttachments(

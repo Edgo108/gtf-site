@@ -130,7 +130,7 @@ export function LabMarkerDetailModal({
                 </Link>
               ) : (
                 <span className="text-sm text-gtf-text-muted">
-                  Enquête introuvable
+                  Enquête introuvable ou non accessible
                 </span>
               )}
             </div>

@@ -13,6 +13,7 @@ import { TrashButton } from "@/components/ui/TrashButton";
 import type { Operation, OperationLinkKind } from "@/lib/supabase/operations-types";
 import { fetchLinkTargets } from "@/lib/operations/link-targets";
 import { btn } from "@/lib/ui/styles";
+import { canAccessEnquetes } from "@/lib/permissions";
 
 export default async function OperationDetailPage({
   params,
@@ -223,12 +224,14 @@ export default async function OperationDetailPage({
           operationId={operation.id}
           linked={linked["wanted_notice"]}
         />
-        <LinkSection
-          title="Enquêtes liées"
-          kind="investigation"
-          operationId={operation.id}
-          linked={linked["investigation"]}
-        />
+        {canAccessEnquetes(profile ?? {}) && (
+          <LinkSection
+            title="Enquêtes liées"
+            kind="investigation"
+            operationId={operation.id}
+            linked={linked["investigation"]}
+          />
+        )}
         <LinkSection
           title="Labos liés"
           kind="lab_marker"
