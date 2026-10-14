@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { AppHeader, type NavLink } from "@/components/layout/AppHeader";
-import { canAccessOperations, canManageUnite } from "@/lib/permissions";
+import {
+  canAccessArchives,
+  canAccessOperations,
+  canManageUnite,
+} from "@/lib/permissions";
 import type { Profile } from "@/lib/supabase/types";
 
 export default async function AppLayout({
@@ -57,15 +61,18 @@ export default async function AppLayout({
     .eq("statut", "actif")
     .gt("created_at", wantedLastSeen);
 
-  const links: NavLink[] = [
-    { href: "/dashboard", label: "Tableau de bord" },
-    // Enquêtes, Rapports et Plaintes sont regroupés derrière « Archives ».
-    { href: "/archives", label: "Archives", match: ["/enquetes"] },
+  const links: NavLink[] = [{ href: "/dashboard", label: "Tableau de bord" }];
+  // Enquêtes, Rapports et Plaintes sont regroupés derrière « Archives »,
+  // dossier entièrement invisible pour le DOJ.
+  if (profile && canAccessArchives(profile)) {
+    links.push({ href: "/archives", label: "Archives", match: ["/enquetes"] });
+  }
+  links.push(
     { href: "/mandats", label: "Mandats", badge: newMandatsCount ?? 0 },
     { href: "/gangs", label: "B.D.D" },
     { href: "/zones", label: "Carte" },
     { href: "/dispatch", label: "Dispatch" },
-  ];
+  );
   // Section entièrement invisible pour les agents DOJ, y compris dans la
   // navigation.
   if (profile && canAccessOperations(profile)) {

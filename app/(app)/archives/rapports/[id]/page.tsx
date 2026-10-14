@@ -19,6 +19,7 @@ import {
 } from "@/lib/supabase/archives-types";
 import { TestBadge } from "@/components/archives/TestBadge";
 import { ActionButton } from "@/components/ui/ActionButton";
+import { ExportPdfButton } from "@/components/archives/ExportPdfButton";
 import { btn } from "@/lib/ui/styles";
 import { loadAttachments } from "@/lib/attachments/server";
 import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
@@ -93,6 +94,7 @@ export default async function RapportDetailPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ExportPdfButton kind="rapport" id={rapport.id} />
           <Link
             href={`/archives/rapports/${rapport.id}/modifier`}
             className={btn("secondary", "md")}

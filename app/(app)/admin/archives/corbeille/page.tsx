@@ -3,6 +3,7 @@ import { requireAdminPage } from "@/lib/auth/require-page";
 import { getPseudoMap } from "@/lib/archives/agents";
 import { TrashTable } from "@/components/ui/TrashTable";
 import { OrphanCleanupButton } from "@/components/attachments/OrphanCleanupButton";
+import { ExportPdfButton } from "@/components/archives/ExportPdfButton";
 import {
   permanentlyDeletePlainte,
   permanentlyDeleteRapport,
@@ -65,12 +66,17 @@ export default async function CorbeilleArchivesPage() {
       </h2>
       <div className="mt-3">
         <TrashTable
-          columns={["N°", "Agent rédacteur", "Suspect"]}
+          columns={["N°", "Agent rédacteur", "Suspect", "PDF"]}
           rows={(rapports ?? []).map((r) => ({
             id: r.id,
             name: reference(r),
             deletedAt: r.deleted_at,
-            cells: [numero(r), pseudo(r.agent_redacteur_id), r.nom_suspect || "—"],
+            cells: [
+              numero(r),
+              pseudo(r.agent_redacteur_id),
+              r.nom_suspect || "—",
+              <ExportPdfButton key="pdf" kind="rapport" id={r.id} size="sm" />,
+            ],
           }))}
           restore={restoreRapport}
           destroy={permanentlyDeleteRapport}
@@ -85,13 +91,18 @@ export default async function CorbeilleArchivesPage() {
       </h2>
       <div className="mt-3">
         <TrashTable
-          columns={["N°", "Agent rédacteur", "Victime"]}
+          columns={["N°", "Agent rédacteur", "Victime", "PDF"]}
           deletedLabel="Supprimée le"
           rows={(plaintes ?? []).map((p) => ({
             id: p.id,
             name: reference(p),
             deletedAt: p.deleted_at,
-            cells: [numero(p), pseudo(p.agent_redacteur_id), p.nom_victime || "—"],
+            cells: [
+              numero(p),
+              pseudo(p.agent_redacteur_id),
+              p.nom_victime || "—",
+              <ExportPdfButton key="pdf" kind="plainte" id={p.id} size="sm" />,
+            ],
           }))}
           restore={restorePlainte}
           destroy={permanentlyDeletePlainte}

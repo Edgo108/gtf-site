@@ -105,6 +105,22 @@ export function canAccessEnquetes(actor: ActorUnite): boolean {
   return actor.unite === "ID" || actor.unite === "GTF" || actor.unite === "EM";
 }
 
+// --- Section « Archives » (Rapports et Plaintes) ----------------------
+// Tout sauf DOJ : ID / GTF / EM / SASP (et l'admin). DOJ n'obtient un
+// rapport ou une plainte que par un PDF exporté par un autre agent.
+// Miroir de public.unite_peut_lire_archives()
+// (supabase/archives_doj_lockout.sql). Couvre aussi la navigation
+// « Archives » (les Enquêtes, plus restreintes encore, y sont rangées).
+export function canAccessArchives(actor: ActorUnite): boolean {
+  if (actor.role === "admin") return true;
+  return (
+    actor.unite === "ID" ||
+    actor.unite === "GTF" ||
+    actor.unite === "EM" ||
+    actor.unite === "SASP"
+  );
+}
+
 // --- Section « Opérations » -------------------------------------------
 // Contrairement aux sections ci-dessus, l'écriture sur une opération ne
 // dépend PAS de l'unité : elle est décidée ligne par ligne (lead + agents

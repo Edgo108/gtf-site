@@ -19,6 +19,7 @@ import {
 } from "@/lib/supabase/archives-types";
 import { TestBadge } from "@/components/archives/TestBadge";
 import { ActionButton } from "@/components/ui/ActionButton";
+import { ExportPdfButton } from "@/components/archives/ExportPdfButton";
 import { btn } from "@/lib/ui/styles";
 import { loadAttachments } from "@/lib/attachments/server";
 import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
@@ -79,6 +80,7 @@ export default async function PlainteDetailPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ExportPdfButton kind="plainte" id={plainte.id} />
           <Link
             href={`/archives/plaintes/${plainte.id}/modifier`}
             className={btn("secondary", "md")}
