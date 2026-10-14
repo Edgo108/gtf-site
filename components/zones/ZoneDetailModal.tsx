@@ -79,7 +79,11 @@ export function ZoneDetailModal({
             )}
             <div>
               <h2 className="font-display text-xl font-bold uppercase tracking-wide text-gtf-text">
-                {gang ? gang.nom : TRASHED_ORGANISATION_LABEL}
+                {!zone.gang_id
+                  ? "Zone de vente"
+                  : gang
+                    ? gang.nom
+                    : TRASHED_ORGANISATION_LABEL}
               </h2>
               {gang && (
                 <div className="mt-1 flex items-center gap-2">
@@ -99,6 +103,12 @@ export function ZoneDetailModal({
             ×
           </button>
         </div>
+
+        {!zone.gang_id && (
+          <p className="mt-4 text-sm text-gtf-text-muted">
+            Zone de vente, aucun gang attribué.
+          </p>
+        )}
 
         {gang && (
           <p className="mt-4 whitespace-pre-wrap text-sm text-gtf-text">

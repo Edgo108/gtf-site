@@ -84,15 +84,16 @@ export async function fetchLinkTargets(
     case "zone": {
       let q = supabase
         .from("sensitive_zones")
-        .select("id, type_zone, gangs(nom)")
+        .select("id, type_zone, gang_id, gangs(nom)")
         .order("created_at", { ascending: false });
       if (ids) q = q.in("id", ids);
       const { data } = await q.returns<
-        { id: string; type_zone: string; gangs: GangJoin }[]
+        { id: string; type_zone: string; gang_id: string | null; gangs: GangJoin }[]
       >();
       return (data ?? []).map((r) => ({
         id: r.id,
-        label: `${gangNom(r.gangs)} — ${ZONE_TYPE_LABELS[r.type_zone] ?? r.type_zone}`,
+        // Zone de vente sans gang : pas d'organisation « en corbeille ».
+        label: `${r.gang_id ? gangNom(r.gangs) : "Sans gang"} — ${ZONE_TYPE_LABELS[r.type_zone] ?? r.type_zone}`,
         href: href(r.id),
       }));
     }

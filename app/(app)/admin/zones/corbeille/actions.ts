@@ -89,3 +89,50 @@ export async function permanentlyDeleteLabMarker(
   revalidatePath("/admin/zones/corbeille");
   return { success: true };
 }
+
+export async function restoreDealPoint(
+  formData: FormData,
+): Promise<ActionResult> {
+  await requireAdmin();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Identifiant manquant." };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("deal_points")
+    .update({ deleted_at: null })
+    .eq("id", id);
+
+  if (error) {
+    return { error: "Impossible de restaurer le point de deal." };
+  }
+
+  revalidatePath("/admin/zones/corbeille");
+  revalidatePath("/zones");
+  return { success: true };
+}
+
+export async function permanentlyDeleteDealPoint(
+  formData: FormData,
+): Promise<ActionResult> {
+  await requireAdmin();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Identifiant manquant." };
+
+  const admin = createAdminClient();
+  // Garde-fou : seul un point déjà en corbeille peut être effacé.
+  const { error } = await admin
+    .from("deal_points")
+    .delete()
+    .eq("id", id)
+    .not("deleted_at", "is", null);
+
+  if (error) {
+    return { error: "Impossible de supprimer définitivement le point de deal." };
+  }
+
+  revalidatePath("/admin/zones/corbeille");
+  return { success: true };
+}

@@ -4,7 +4,9 @@ export type ZonePoint = { x: number; y: number };
 
 export type SensitiveZone = {
   id: string;
-  gang_id: string;
+  // null uniquement pour une zone de vente (« aucun gang attribué ») ;
+  // un QG a toujours un gang (contrainte sensitive_zones_qg_requires_gang).
+  gang_id: string | null;
   type_zone: ZoneType;
   points: ZonePoint[];
   created_by: string | null;

@@ -20,8 +20,23 @@ import {
   releaseLabLock,
   getLabLocksWithPseudos,
 } from "@/app/(app)/zones/lab-actions";
+import {
+  createDealPoint,
+  updateDealPoint,
+  deleteDealPoint,
+  acquireDealLock,
+  releaseDealLock,
+  getDealLocksWithPseudos,
+} from "@/app/(app)/zones/deal-actions";
 import { ZoneDetailModal } from "./ZoneDetailModal";
 import { LabMarkerDetailModal } from "./LabMarkerDetailModal";
+import { DealPointDetailModal } from "./DealPointDetailModal";
+import {
+  DealPointFormPanel,
+  EMPTY_DEAL_DRAFT,
+  type DealPointDraft,
+} from "./DealPointFormPanel";
+import { makeDealPointIcon } from "./deal-point-icon";
 import { InvestigationAutocomplete } from "./InvestigationAutocomplete";
 import type { Gang } from "@/lib/supabase/gangs-types";
 import type {
@@ -38,6 +53,11 @@ import {
   type LabMarker,
   type LabStatut,
 } from "@/lib/supabase/lab-markers-types";
+import {
+  NO_ORGANISATION_COLOR,
+  type DealPoint,
+  type DealProduit,
+} from "@/lib/supabase/deal-points-types";
 import type { Investigation } from "@/lib/supabase/investigations-types";
 import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -57,7 +77,14 @@ type MapLayerKey = (typeof MAP_LAYERS)[number]["value"];
 
 type LockInfo = { locked_by: string; locked_at: string; pseudo: string };
 
-type Mode = "view" | "drawing" | "editing" | "lab-placing" | "lab-editing";
+type Mode =
+  | "view"
+  | "drawing"
+  | "editing"
+  | "lab-placing"
+  | "lab-editing"
+  | "deal-placing"
+  | "deal-editing";
 
 const POLL_INTERVAL_MS = 20_000;
 
@@ -134,12 +161,19 @@ function makeLabIcon(
 const DEFAULT_FILTERS = {
   zoneVente: true,
   zoneQg: true,
+  // Zones de vente sans gang attribué.
+  zoneSansGang: true,
   labArme: true,
   labCocaine: true,
   labMeth: true,
   labActif: true,
   labRaided: true,
   labPotentiel: true,
+  dealCocaine: true,
+  dealMeth: true,
+  dealWeed: true,
+  dealActif: true,
+  dealInactif: true,
 };
 type FilterKey = keyof typeof DEFAULT_FILTERS;
 
@@ -244,9 +278,12 @@ export function InteractiveMap({
   const drawLayerRef = useRef<L.LayerGroup | null>(null);
   const labsLayerRef = useRef<L.LayerGroup | null>(null);
   const labDraftLayerRef = useRef<L.LayerGroup | null>(null);
+  const dealsLayerRef = useRef<L.LayerGroup | null>(null);
+  const dealDraftLayerRef = useRef<L.LayerGroup | null>(null);
   const modeRef = useRef<Mode>("view");
   const drawingPointsRef = useRef<ZonePoint[]>([]);
   const labEditPosRef = useRef<ZonePoint | null>(null);
+  const dealEditPosRef = useRef<ZonePoint | null>(null);
 
   const [layer, setLayer] = useState<MapLayerKey>("atlas");
   // Facteur d'échelle des icônes labo selon le zoom (1 au zoom max).
@@ -268,6 +305,8 @@ export function InteractiveMap({
   );
   const [locks, setLocks] = useState<Map<string, LockInfo>>(new Map());
   const [labLocks, setLabLocks] = useState<Map<string, LockInfo>>(new Map());
+  const [dealPoints, setDealPoints] = useState<DealPoint[]>([]);
+  const [dealLocks, setDealLocks] = useState<Map<string, LockInfo>>(new Map());
 
   const [mode, setMode] = useState<Mode>("view");
 
@@ -325,6 +364,23 @@ export function InteractiveMap({
   const [selectedLabId, setSelectedLabId] = useState<string | null>(null);
   const [labModalError, setLabModalError] = useState<string | null>(null);
 
+  // --- points de deal : placement / édition ---
+  const [dealPlacePos, setDealPlacePos] = useState<ZonePoint | null>(null);
+  const [dealPlaceDraft, setDealPlaceDraft] =
+    useState<DealPointDraft>(EMPTY_DEAL_DRAFT);
+  const [dealPlaceError, setDealPlaceError] = useState<string | null>(null);
+  const [dealPlacePending, setDealPlacePending] = useState(false);
+
+  const [editingDealId, setEditingDealId] = useState<string | null>(null);
+  const [dealEditPos, setDealEditPos] = useState<ZonePoint | null>(null);
+  const [dealEditDraft, setDealEditDraft] =
+    useState<DealPointDraft>(EMPTY_DEAL_DRAFT);
+  const [dealEditError, setDealEditError] = useState<string | null>(null);
+  const [dealEditPending, setDealEditPending] = useState(false);
+
+  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+  const [dealModalError, setDealModalError] = useState<string | null>(null);
+
   // --- Surbrillance « Voir le QG sur la carte » (depuis la fiche B.D.D.) --
   // Volontairement temporaire (s'efface toute seule) plutôt que persistante
   // tant que rien n'indique le contraire côté utilisateur. Pas de
@@ -356,6 +412,9 @@ export function InteractiveMap({
   useEffect(() => {
     labEditPosRef.current = labEditPos;
   }, [labEditPos]);
+  useEffect(() => {
+    dealEditPosRef.current = dealEditPos;
+  }, [dealEditPos]);
 
   // --- Chargement initial + rafraîchissement périodique ------------------
 
@@ -383,11 +442,12 @@ export function InteractiveMap({
   async function fetchMapData() {
     try {
       const supabase = createClient();
-      const [gangsRes, zonesRes, labsRes, investigationsRes] =
+      const [gangsRes, zonesRes, labsRes, dealsRes, investigationsRes] =
         await Promise.all([
           supabase.from("gangs").select("*").returns<Gang[]>(),
           supabase.from("sensitive_zones").select("*").returns<SensitiveZone[]>(),
           supabase.from("lab_markers").select("*").returns<LabMarker[]>(),
+          supabase.from("deal_points").select("*").returns<DealPoint[]>(),
           supabase
             .from("investigations")
             .select("id, titre")
@@ -405,6 +465,9 @@ export function InteractiveMap({
       setGangs(keepIfUnchanged(gangsRes.data ?? []));
       setZones(keepIfUnchanged(zonesRes.data ?? []));
       setLabMarkers(keepIfUnchanged(labsRes.data ?? []));
+      // Points de deal : en cas d'échec, on garde les derniers affichés
+      // plutôt que de bloquer toute la carte.
+      if (!dealsRes.error) setDealPoints(keepIfUnchanged(dealsRes.data ?? []));
       setInvestigations(keepIfUnchanged(investigationsRes.data ?? []));
       setDataLoaded(true);
       reportPollSuccess();
@@ -415,9 +478,10 @@ export function InteractiveMap({
 
   async function fetchLocks() {
     try {
-      const [zoneLocks, markerLocks] = await Promise.all([
+      const [zoneLocks, markerLocks, pointLocks] = await Promise.all([
         getLocksWithPseudos(),
         getLabLocksWithPseudos(),
+        getDealLocksWithPseudos(),
       ]);
       // Les verrous expirés (>3 min) sont écartés ici (dans un callback, pas
       // le rendu) : les Map ne contiennent ensuite que des verrous actifs.
@@ -446,6 +510,18 @@ export function InteractiveMap({
         }
       }
       setLabLocks(keepIfUnchanged(lb));
+
+      const dl = new Map<string, LockInfo>();
+      for (const l of pointLocks) {
+        if (now - new Date(l.locked_at).getTime() < LOCK_DURATION_MS) {
+          dl.set(l.point_id, {
+            locked_by: l.locked_by,
+            locked_at: l.locked_at,
+            pseudo: l.pseudo,
+          });
+        }
+      }
+      setDealLocks(keepIfUnchanged(dl));
     } catch {
       reportPollFailure();
     }
@@ -542,12 +618,16 @@ export function InteractiveMap({
         drawLayerRef.current = L.layerGroup().addTo(map);
         labsLayerRef.current = L.layerGroup().addTo(map);
         labDraftLayerRef.current = L.layerGroup().addTo(map);
+        dealsLayerRef.current = L.layerGroup().addTo(map);
+        dealDraftLayerRef.current = L.layerGroup().addTo(map);
 
         map.on("click", (e: L.LeafletMouseEvent) => {
           if (modeRef.current === "drawing") {
             setDrawingPoints((prev) => [...prev, latLngToPoint(e.latlng)]);
           } else if (modeRef.current === "lab-placing") {
             setLabPlacePos(latLngToPoint(e.latlng));
+          } else if (modeRef.current === "deal-placing") {
+            setDealPlacePos(latLngToPoint(e.latlng));
           }
         });
 
@@ -612,9 +692,12 @@ export function InteractiveMap({
 
       if (zone.type_zone === "vente" && !filters.zoneVente) continue;
       if (zone.type_zone === "qg" && !filters.zoneQg) continue;
+      if (!zone.gang_id && !filters.zoneSansGang) continue;
 
-      const gang = gangsById.get(zone.gang_id);
-      const color = gang?.couleur ?? "#8B94A0";
+      // Zone de vente sans gang : gris neutre fixe (même gris qu'une zone
+      // dont l'organisation est en corbeille).
+      const gang = zone.gang_id ? gangsById.get(zone.gang_id) : undefined;
+      const color = gang?.couleur ?? NO_ORGANISATION_COLOR;
       const lock = locks.get(zone.id);
       const isLockedByOther = !!lock && lock.locked_by !== currentUserId;
       const isHighlighted = zone.id === highlightedQgZoneId;
@@ -651,6 +734,7 @@ export function InteractiveMap({
     currentUserId,
     filters.zoneVente,
     filters.zoneQg,
+    filters.zoneSansGang,
     highlightedGangId,
   ]);
 
@@ -719,6 +803,119 @@ export function InteractiveMap({
     filters.labRaided,
     filters.labPotentiel,
     highlightedGangId,
+  ]);
+
+  // --- Rendu des points de deal ---------------------------------------
+
+  useEffect(() => {
+    const group = dealsLayerRef.current;
+    if (!group) return;
+    group.clearLayers();
+
+    const gangsById = new Map(gangs.map((g) => [g.id, g]));
+    const produitShown: Record<DealProduit, boolean> = {
+      cocaine: filters.dealCocaine,
+      meth: filters.dealMeth,
+      weed: filters.dealWeed,
+    };
+
+    for (const point of dealPoints) {
+      if (mode === "deal-editing" && point.id === editingDealId) continue;
+      if (!produitShown[point.produit]) continue;
+      if (point.statut === "actif" && !filters.dealActif) continue;
+      if (point.statut === "inactif" && !filters.dealInactif) continue;
+
+      const lock = dealLocks.get(point.id);
+      const isLockedByOther = !!lock && lock.locked_by !== currentUserId;
+      const color = point.organisation_id
+        ? gangsById.get(point.organisation_id)?.couleur
+        : null;
+
+      const m = L.marker([point.position.y, point.position.x], {
+        icon: makeDealPointIcon(
+          color,
+          point.statut,
+          labIconScale,
+          !!point.organisation_id && point.organisation_id === highlightedGangId,
+        ),
+      });
+
+      if (isLockedByOther) {
+        m.bindTooltip(`En cours de modification par ${lock.pseudo}`, {
+          sticky: true,
+        });
+      }
+
+      m.on("click", () => {
+        if (modeRef.current !== "view") return;
+        setSelectedDealId(point.id);
+        setDealModalError(null);
+      });
+
+      m.addTo(group);
+    }
+  }, [
+    dealPoints,
+    dealLocks,
+    gangs,
+    mode,
+    editingDealId,
+    currentUserId,
+    labIconScale,
+    filters.dealCocaine,
+    filters.dealMeth,
+    filters.dealWeed,
+    filters.dealActif,
+    filters.dealInactif,
+    highlightedGangId,
+  ]);
+
+  // --- Aperçu du placement / point déplaçable en édition ---------------
+
+  useEffect(() => {
+    const group = dealDraftLayerRef.current;
+    if (!group) return;
+    group.clearLayers();
+    if (mode !== "deal-placing" || !dealPlacePos) return;
+
+    const color = gangs.find((g) => g.id === dealPlaceDraft.organisationId)?.couleur;
+    L.marker([dealPlacePos.y, dealPlacePos.x], {
+      icon: makeDealPointIcon(color, dealPlaceDraft.statut, labIconScale),
+      interactive: false,
+      opacity: 0.85,
+    }).addTo(group);
+  }, [mode, dealPlacePos, dealPlaceDraft, gangs, labIconScale]);
+
+  // Redessiné quand le statut / l'organisation / le zoom changent ; la
+  // position en cours est conservée via dealEditPosRef.
+  useEffect(() => {
+    const group = dealDraftLayerRef.current;
+    if (!group || mode !== "deal-editing" || !editingDealId) return;
+
+    group.clearLayers();
+    const start = dealEditPosRef.current;
+    if (!start) return;
+
+    const color = gangs.find((g) => g.id === dealEditDraft.organisationId)?.couleur;
+    const marker = L.marker([start.y, start.x], {
+      icon: makeDealPointIcon(color, dealEditDraft.statut, labIconScale),
+      draggable: true,
+    }).addTo(group);
+
+    marker.on("dragend", () => {
+      setDealEditPos(latLngToPoint(marker.getLatLng()));
+    });
+
+    return () => {
+      group.clearLayers();
+    };
+  }, [
+    mode,
+    editingDealId,
+    dealEditDraft.organisationId,
+    dealEditDraft.statut,
+    gangs,
+    labIconScale,
   ]);
 
   // --- Aperçu du dessin d'une nouvelle zone -----------------------------
@@ -843,8 +1040,9 @@ export function InteractiveMap({
   }
 
   async function validateDrawing() {
-    if (!drawGangId) {
-      setDrawError("Sélectionnez un gang.");
+    // Gang facultatif pour une zone de vente, obligatoire pour un QG.
+    if (!drawGangId && drawType === "qg") {
+      setDrawError("Un QG doit être rattaché à un gang.");
       return;
     }
     if (drawingPoints.length < 3) {
@@ -894,7 +1092,7 @@ export function InteractiveMap({
     setSelectedZoneId(null);
     setEditingZoneId(zone.id);
     setEditingPoints(zone.points);
-    setEditGangId(zone.gang_id);
+    setEditGangId(zone.gang_id ?? "");
     setEditType(zone.type_zone);
     setEditError(null);
     setMode("editing");
@@ -915,8 +1113,8 @@ export function InteractiveMap({
 
   async function saveEditing() {
     if (!editingZoneId) return;
-    if (!editGangId) {
-      setEditError("Sélectionnez un gang.");
+    if (!editGangId && editType === "qg") {
+      setEditError("Un QG doit être rattaché à un gang.");
       return;
     }
     if (editingPoints.length < 3) {
@@ -1159,10 +1357,144 @@ export function InteractiveMap({
     fetchMapData();
   }
 
+  // --- Actions : points de deal -------------------------------------
+
+  function dealFormData(draft: DealPointDraft, position: ZonePoint): FormData {
+    const formData = new FormData();
+    formData.set("produit", draft.produit);
+    formData.set("statut", draft.statut);
+    formData.set("organisation_id", draft.organisationId);
+    formData.set("note", draft.note);
+    formData.set("position", JSON.stringify(position));
+    return formData;
+  }
+
+  function startPlacingDeal() {
+    setDealPlaceError(null);
+    setDealPlacePos(null);
+    setDealPlaceDraft(EMPTY_DEAL_DRAFT);
+    setMode("deal-placing");
+  }
+
+  function cancelPlacingDeal() {
+    setDealPlacePos(null);
+    setDealPlaceError(null);
+    setMode("view");
+  }
+
+  async function validatePlacingDeal() {
+    if (!dealPlacePos) {
+      setDealPlaceError("Cliquez sur la carte pour positionner le point.");
+      return;
+    }
+    setDealPlacePending(true);
+    setDealPlaceError(null);
+
+    const result = await run(
+      () => createDealPoint(dealFormData(dealPlaceDraft, dealPlacePos)),
+      { success: "Point de deal créé", inline: true },
+    );
+    setDealPlacePending(false);
+
+    if (result.error) {
+      setDealPlaceError(result.error);
+      return;
+    }
+    setDealPlacePos(null);
+    setMode("view");
+    fetchMapData();
+  }
+
+  async function startEditingDeal(point: DealPoint) {
+    setDealModalError(null);
+    const formData = new FormData();
+    formData.set("point_id", point.id);
+    const result = await run(() => acquireDealLock(formData), { inline: true });
+
+    if (result.error) {
+      setDealModalError(result.error);
+      await fetchLocks();
+      return;
+    }
+
+    setSelectedDealId(null);
+    setEditingDealId(point.id);
+    setDealEditPos(point.position);
+    dealEditPosRef.current = point.position;
+    setDealEditDraft({
+      produit: point.produit,
+      statut: point.statut,
+      organisationId: point.organisation_id ?? "",
+      note: point.note ?? "",
+    });
+    setDealEditError(null);
+    setMode("deal-editing");
+  }
+
+  async function cancelEditingDeal() {
+    if (editingDealId) {
+      const formData = new FormData();
+      formData.set("point_id", editingDealId);
+      await run(() => releaseDealLock(formData), { inline: true });
+    }
+    setEditingDealId(null);
+    setDealEditPos(null);
+    setDealEditError(null);
+    setMode("view");
+    fetchLocks();
+  }
+
+  async function saveEditingDeal() {
+    if (!editingDealId || !dealEditPos) return;
+    setDealEditPending(true);
+    setDealEditError(null);
+
+    const formData = dealFormData(dealEditDraft, dealEditPos);
+    formData.set("id", editingDealId);
+    const result = await run(() => updateDealPoint(formData), {
+      success: "Point de deal mis à jour",
+      inline: true,
+    });
+    setDealEditPending(false);
+
+    if (result.error) {
+      setDealEditError(result.error);
+      return;
+    }
+    setEditingDealId(null);
+    setDealEditPos(null);
+    setMode("view");
+    fetchMapData();
+    fetchLocks();
+  }
+
+  async function handleDeleteDeal(pointId: string) {
+    if (
+      !window.confirm(
+        "Déplacer ce point de deal vers la corbeille ? Cette action peut être annulée par un administrateur.",
+      )
+    ) {
+      return;
+    }
+    const formData = new FormData();
+    formData.set("id", pointId);
+    const result = await run(() => deleteDealPoint(formData), {
+      success: "Point de deal déplacé vers la corbeille",
+      inline: true,
+    });
+
+    if (result.error) {
+      setDealModalError(result.error);
+      return;
+    }
+    setSelectedDealId(null);
+    fetchMapData();
+  }
+
   // --- Sélections dérivées -----------------------------------------
 
   const selectedZone = zones.find((z) => z.id === selectedZoneId) ?? null;
-  const selectedGang = selectedZone
+  const selectedGang = selectedZone?.gang_id
     ? gangs.find((g) => g.id === selectedZone.gang_id) ?? null
     : null;
   const selectedLock = selectedZone ? locks.get(selectedZone.id) : undefined;
@@ -1186,6 +1518,16 @@ export function InteractiveMap({
   const selectedLabLockedByOther =
     selectedLabLock && selectedLabLock.locked_by !== currentUserId
       ? { pseudo: selectedLabLock.pseudo }
+      : null;
+
+  const selectedDeal = dealPoints.find((p) => p.id === selectedDealId) ?? null;
+  const selectedDealGang = selectedDeal?.organisation_id
+    ? gangs.find((g) => g.id === selectedDeal.organisation_id) ?? null
+    : null;
+  const selectedDealLock = selectedDeal ? dealLocks.get(selectedDeal.id) : undefined;
+  const selectedDealLockedByOther =
+    selectedDealLock && selectedDealLock.locked_by !== currentUserId
+      ? { pseudo: selectedDealLock.pseudo }
       : null;
 
   const panelSelectClass = `w-full ${fieldCompactClass}`;
@@ -1281,6 +1623,11 @@ export function InteractiveMap({
                 checked={filters.zoneQg}
                 onChange={() => toggleFilter("zoneQg")}
               />
+              <FilterCheckbox
+                label="Vente sans gang"
+                checked={filters.zoneSansGang}
+                onChange={() => toggleFilter("zoneSansGang")}
+              />
 
               <p className={`${panelLabelClass} mt-3`}>Laboratoires</p>
               <FilterCheckbox
@@ -1316,6 +1663,35 @@ export function InteractiveMap({
                 onChange={() => toggleFilter("labPotentiel")}
               />
 
+              <p className={`${panelLabelClass} mt-3`}>Points de deal</p>
+              <FilterCheckbox
+                label="Cocaïne"
+                checked={filters.dealCocaine}
+                onChange={() => toggleFilter("dealCocaine")}
+              />
+              <FilterCheckbox
+                label="Meth"
+                checked={filters.dealMeth}
+                onChange={() => toggleFilter("dealMeth")}
+              />
+              <FilterCheckbox
+                label="Weed"
+                checked={filters.dealWeed}
+                onChange={() => toggleFilter("dealWeed")}
+              />
+
+              <p className={`${panelLabelClass} mt-3`}>Statut point de deal</p>
+              <FilterCheckbox
+                label="Actif"
+                checked={filters.dealActif}
+                onChange={() => toggleFilter("dealActif")}
+              />
+              <FilterCheckbox
+                label="Inactif"
+                checked={filters.dealInactif}
+                onChange={() => toggleFilter("dealInactif")}
+              />
+
               {someFilterHidden && (
                 <button
                   onClick={() => setFilters(DEFAULT_FILTERS)}
@@ -1345,6 +1721,12 @@ export function InteractiveMap({
             >
               Ajouter un labo
             </button>
+            <button
+              onClick={startPlacingDeal}
+              className={btn("secondary", "md", "flex-1 bg-gtf-panel/95 font-mono shadow-lg sm:flex-none")}
+            >
+              Ajouter un point de deal
+            </button>
           </div>
         )}
 
@@ -1354,13 +1736,17 @@ export function InteractiveMap({
               Nouvelle zone
             </p>
             <div className="mt-2">
-              <label className={panelLabelClass}>Gang</label>
+              <label className={panelLabelClass}>
+                Gang{drawType === "vente" && " (facultatif)"}
+              </label>
               <select
                 value={drawGangId}
                 onChange={(e) => setDrawGangId(e.target.value)}
                 className={panelSelectClass}
               >
-                <option value="">— Sélectionner —</option>
+                <option value="">
+                  {drawType === "vente" ? "Aucun gang" : "— Sélectionner —"}
+                </option>
                 {gangs.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.nom}
@@ -1419,12 +1805,17 @@ export function InteractiveMap({
               Modification de la zone
             </p>
             <div className="mt-2">
-              <label className={panelLabelClass}>Gang</label>
+              <label className={panelLabelClass}>
+                Gang{editType === "vente" && " (facultatif)"}
+              </label>
               <select
                 value={editGangId}
                 onChange={(e) => setEditGangId(e.target.value)}
                 className={panelSelectClass}
               >
+                <option value="">
+                  {editType === "vente" ? "Aucun gang" : "— Sélectionner —"}
+                </option>
                 {gangs.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.nom}
@@ -1660,6 +2051,40 @@ export function InteractiveMap({
             )}
           </div>
         )}
+
+        {mode === "deal-placing" && (
+          <DealPointFormPanel
+            title="Nouveau point de deal"
+            draft={dealPlaceDraft}
+            onChange={setDealPlaceDraft}
+            gangs={gangs}
+            hint={
+              dealPlacePos
+                ? "Position enregistrée — cliquez ailleurs pour la corriger."
+                : "Cliquez sur la carte pour positionner le point."
+            }
+            submitLabel="Valider le point"
+            onSubmit={validatePlacingDeal}
+            onCancel={cancelPlacingDeal}
+            pending={dealPlacePending}
+            error={dealPlaceError}
+          />
+        )}
+
+        {mode === "deal-editing" && (
+          <DealPointFormPanel
+            title="Modification du point de deal"
+            draft={dealEditDraft}
+            onChange={setDealEditDraft}
+            gangs={gangs}
+            hint="Glissez le point pour le repositionner."
+            submitLabel="Enregistrer"
+            onSubmit={saveEditingDeal}
+            onCancel={cancelEditingDeal}
+            pending={dealEditPending}
+            error={dealEditError}
+          />
+        )}
       </div>
 
       {selectedZone && !editingZoneId && (
@@ -1685,6 +2110,19 @@ export function InteractiveMap({
           onEdit={() => startEditingLab(selectedLab)}
           onDelete={() => handleDeleteLab(selectedLab.id)}
           editError={labModalError}
+          canWrite={canWrite}
+        />
+      )}
+
+      {selectedDeal && !editingDealId && (
+        <DealPointDetailModal
+          point={selectedDeal}
+          gang={selectedDealGang}
+          lockedByOther={selectedDealLockedByOther}
+          onClose={() => setSelectedDealId(null)}
+          onEdit={() => startEditingDeal(selectedDeal)}
+          onDelete={() => handleDeleteDeal(selectedDeal.id)}
+          editError={dealModalError}
           canWrite={canWrite}
         />
       )}

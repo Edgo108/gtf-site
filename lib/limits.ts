@@ -21,6 +21,8 @@ export const TEXT_LIMITS = {
   patch_notes: { titre: 150, description: 5000 },
   rapports: { nom_suspect: 120, faits_reproches: 10000, descriptif_situation: 20000 },
   plaintes: { nom_victime: 120, descriptif_plainte: 20000 },
+  // CHECK posé directement dans supabase/map_deal_points.sql.
+  deal_points: { note: 5000 },
 } as const;
 
 const FIELD_LABELS: Record<string, string> = {
@@ -35,6 +37,7 @@ const FIELD_LABELS: Record<string, string> = {
   territoire: "Territoire",
   activites: "Activités",
   notes: "Notes",
+  note: "Note",
   role: "Rôle",
   nom_suspect: "Nom du suspect",
   message: "Message",

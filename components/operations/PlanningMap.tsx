@@ -399,7 +399,9 @@ export function PlanningMap({ operationId }: { operationId: string }) {
 
     const gangsById = new Map(gangs.map((g) => [g.id, g]));
     for (const zone of zones) {
-      const color = gangsById.get(zone.gang_id)?.couleur ?? "#8B94A0";
+      // Zone de vente sans gang : gris neutre, comme sur la carte principale.
+      const color =
+        (zone.gang_id && gangsById.get(zone.gang_id)?.couleur) || "#8B94A0";
       L.polygon(pointsToLatLngs(zone.points), {
         color,
         weight: 1.5,

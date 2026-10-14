@@ -3,11 +3,18 @@ import { requireAdminPage } from "@/lib/auth/require-page";
 import { TrashTable } from "@/components/ui/TrashTable";
 import { LabCategorieBadge, LabStatutBadge } from "@/components/zones/LabBadges";
 import {
+  DealProduitBadge,
+  DealStatutBadge,
+} from "@/components/zones/DealPointBadges";
+import {
+  permanentlyDeleteDealPoint,
   permanentlyDeleteLabMarker,
   permanentlyDeleteZone,
+  restoreDealPoint,
   restoreLabMarker,
   restoreZone,
 } from "./actions";
+import type { DealPoint } from "@/lib/supabase/deal-points-types";
 import type { SensitiveZone } from "@/lib/supabase/zones-types";
 import type { LabMarker } from "@/lib/supabase/lab-markers-types";
 
@@ -21,7 +28,7 @@ export default async function CorbeilleZonesPage() {
   await requireAdminPage();
 
   const admin = createAdminClient();
-  const [{ data: zones }, { data: labMarkers }, { data: gangs }] =
+  const [{ data: zones }, { data: labMarkers }, { data: dealPoints }, { data: gangs }] =
     await Promise.all([
       admin
         .from("sensitive_zones")
@@ -38,6 +45,14 @@ export default async function CorbeilleZonesPage() {
           Pick<LabMarker, "id" | "organisation_id" | "categorie" | "statut" | "deleted_at">[]
         >(),
       admin
+        .from("deal_points")
+        .select("id, produit, statut, organisation_id, deleted_at")
+        .not("deleted_at", "is", null)
+        .order("deleted_at", { ascending: false })
+        .returns<
+          Pick<DealPoint, "id" | "produit" | "statut" | "organisation_id" | "deleted_at">[]
+        >(),
+      admin
         .from("gangs")
         .select("id, nom, deleted_at")
         .returns<{ id: string; nom: string; deleted_at: string | null }[]>(),
@@ -47,7 +62,8 @@ export default async function CorbeilleZonesPage() {
   const gangLabel = new Map(
     (gangs ?? []).map((g) => [g.id, g.deleted_at ? `${g.nom} (en corbeille)` : g.nom]),
   );
-  const orgOf = (id: string) => gangLabel.get(id) ?? "Organisation inconnue";
+  const orgOf = (id: string | null) =>
+    id ? (gangLabel.get(id) ?? "Organisation inconnue") : "Aucun gang";
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -97,6 +113,30 @@ export default async function CorbeilleZonesPage() {
           restoreSuccess="Marqueur laboratoire restauré"
           destroySuccess="Marqueur laboratoire supprimé définitivement"
           destroyConfirm="Supprimer définitivement le marqueur"
+        />
+      </div>
+
+      <h2 className="mt-8 font-display text-sm font-semibold uppercase tracking-wider text-gtf-text-muted">
+        Points de deal — {dealPoints?.length ?? 0} supprimé(s)
+      </h2>
+      <div className="mt-3">
+        <TrashTable
+          columns={["Produit", "Statut", "Organisation"]}
+          rows={(dealPoints ?? []).map((p) => ({
+            id: p.id,
+            name: `point de deal — ${p.organisation_id ? orgOf(p.organisation_id) : "Aucune organisation"}`,
+            deletedAt: p.deleted_at,
+            cells: [
+              <DealProduitBadge key="produit" produit={p.produit} />,
+              <DealStatutBadge key="statut" statut={p.statut} />,
+              p.organisation_id ? orgOf(p.organisation_id) : "Aucune organisation",
+            ],
+          }))}
+          restore={restoreDealPoint}
+          destroy={permanentlyDeleteDealPoint}
+          restoreSuccess="Point de deal restauré"
+          destroySuccess="Point de deal supprimé définitivement"
+          destroyConfirm="Supprimer définitivement le point de deal"
         />
       </div>
     </div>

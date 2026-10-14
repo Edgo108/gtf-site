@@ -38,17 +38,26 @@ function parseTypeZone(raw: string): ZoneType | null {
   return raw === "vente" || raw === "qg" ? raw : null;
 }
 
+// Gang facultatif pour une zone de vente (« Aucun gang »), obligatoire
+// pour un QG — même règle que la contrainte
+// sensitive_zones_qg_requires_gang en base.
+const QG_REQUIRES_GANG = "Un QG doit être rattaché à un gang.";
+
+function readGangId(formData: FormData): string | null {
+  return String(formData.get("gang_id") ?? "").trim() || null;
+}
+
 export async function createZone(formData: FormData): Promise<ActionResult> {
   const { supabase, user, profile } = await requireActiveUser();
 
   if (!uniteCanWrite("zones", profile)) return { error: NO_WRITE_ZONES };
 
-  const gang_id = String(formData.get("gang_id") ?? "");
+  const gang_id = readGangId(formData);
   const type_zone = parseTypeZone(String(formData.get("type_zone") ?? ""));
   const points = parsePoints(String(formData.get("points") ?? ""));
 
-  if (!gang_id) return { error: "Le gang est obligatoire." };
   if (!type_zone) return { error: "Type de zone invalide." };
+  if (!gang_id && type_zone === "qg") return { error: QG_REQUIRES_GANG };
   if (!points) return { error: "La zone doit avoir au moins 3 points." };
 
   const { data, error } = await supabase
@@ -90,14 +99,15 @@ export async function updateZone(formData: FormData): Promise<ActionResult> {
     return { error: "Zone introuvable." };
   }
 
-  const gang_id = String(formData.get("gang_id") ?? oldZone.gang_id);
+  // Toujours envoyé par le formulaire d'édition (vide = aucun gang).
+  const gang_id = formData.has("gang_id") ? readGangId(formData) : oldZone.gang_id;
   const type_zone =
     parseTypeZone(String(formData.get("type_zone") ?? "")) ??
     oldZone.type_zone;
   const points =
     parsePoints(String(formData.get("points") ?? "")) ?? oldZone.points;
 
-  if (!gang_id) return { error: "Le gang est obligatoire." };
+  if (!gang_id && type_zone === "qg") return { error: QG_REQUIRES_GANG };
 
   const { error } = await supabase
     .from("sensitive_zones")

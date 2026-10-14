@@ -11,7 +11,13 @@ export function buildZoneChangeSummary(
   const changes: string[] = [];
 
   if (before.gang_id !== after.gang_id) {
-    changes.push("Gang associé modifié");
+    changes.push(
+      !after.gang_id
+        ? "Gang retiré"
+        : !before.gang_id
+          ? "Gang attribué"
+          : "Gang associé modifié",
+    );
   }
   if (before.type_zone !== after.type_zone) {
     changes.push(

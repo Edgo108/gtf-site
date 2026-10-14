@@ -123,6 +123,13 @@ body {
   opacity: 0.5;
 }
 
+/* Point de deal « inactif » : même traitement qu'un labo raidé (désaturé,
+   estompé), en plus du contour en pointillés posé par l'icône. */
+.gtf-deal-inactive {
+  filter: grayscale(1) brightness(0.85);
+  opacity: 0.45;
+}
+
 /* --- Surbrillance temporaire « Voir le QG sur la carte » ---
    Appliquée à la fois à une zone (polygone SVG) et à des marqueurs labo
    (icônes <img>) : `filter: drop-shadow` fonctionne sur les deux. Halo
