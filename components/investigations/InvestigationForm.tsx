@@ -16,6 +16,9 @@ import { FormFooter } from "@/components/ui/FormFooter";
 import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { fieldClass, labelClass } from "@/lib/ui/styles";
 import { VERSION_FIELD } from "@/lib/concurrency";
+import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
+import { useAttachmentDrafts } from "@/lib/attachments/use-attachment-drafts";
+import type { AttachmentView } from "@/lib/attachments/types";
 
 const STATUTS: { value: Investigation["statut"]; label: string }[] = [
   { value: "en_cours", label: "En cours" },
@@ -26,13 +29,17 @@ const STATUTS: { value: Investigation["statut"]; label: string }[] = [
 
 export function InvestigationForm({
   investigation,
+  attachments,
 }: {
   investigation?: Investigation;
+  // Pièces jointes déjà enregistrées (modification).
+  attachments?: AttachmentView[];
 }) {
   const router = useRouter();
   const run = useActionRunner();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const drafts = useAttachmentDrafts("investigation");
   const [suspectMatches, setSuspectMatches] = useState<SuspectMatch[]>([]);
   const nameSuggestions = useNameSuggestions({
     excludeInvestigationId: investigation?.id,
@@ -45,6 +52,11 @@ export function InvestigationForm({
       formData.set("id", investigation.id);
       // Version ouverte : refus à l'enregistrement si la fiche a changé.
       formData.set(VERSION_FIELD, investigation.updated_at);
+    } else {
+      // Identifiant généré à l'ouverture du formulaire : les pièces
+      // jointes déjà envoyées sont rangées sous ce chemin.
+      formData.set("id", drafts.parentId);
+      drafts.markSubmitting(true);
     }
 
     startTransition(async () => {
@@ -53,7 +65,10 @@ export function InvestigationForm({
         success: investigation ? "Enquête mise à jour" : "Enquête créée",
         inline: true,
       });
-      if (result?.error) setError(result.error);
+      if (result?.error) {
+        setError(result.error);
+        drafts.markSubmitting(false);
+      }
     });
   }
 
@@ -249,10 +264,24 @@ export function InvestigationForm({
         </div>
       </div>
 
+      {investigation ? (
+        <AttachmentsSection
+          parentType="investigation"
+          parentId={investigation.id}
+          initial={attachments ?? []}
+          canEdit
+        />
+      ) : (
+        <AttachmentsSection drafts={drafts} canEdit />
+      )}
+
       <FormFooter
         error={error}
-        pending={pending}
-        onCancel={() => router.back()}
+        pending={pending || drafts.uploading > 0}
+        onCancel={() => {
+          drafts.discardAll();
+          router.back();
+        }}
       />
       </form>
     </>

@@ -9,6 +9,12 @@ import { requireActiveUser } from "@/lib/auth/require";
 import { readExpectedVersion, STALE_EDIT_ERROR } from "@/lib/concurrency";
 import { checkTextLimits } from "@/lib/limits";
 import {
+  ATTACHMENTS_SAVE_FAILED,
+  readAttachmentDrafts,
+  readNewRecordId,
+  registerAttachmentRows,
+} from "@/lib/attachments/server";
+import {
   isValidFormulaAmount,
   type InfractionLine,
 } from "@/lib/supabase/code-penal-types";
@@ -167,10 +173,11 @@ export async function createRapport(
   if (tooLong) return { error: tooLong };
   const infractions = await readInfractions(supabase, formData);
   if ("error" in infractions) return { error: infractions.error };
+  const attachmentDrafts = readAttachmentDrafts(formData);
 
   const { data, error } = await supabase
     .from("rapports")
-    .insert({ ...parsed.fields, created_by: user.id })
+    .insert({ ...readNewRecordId(formData), ...parsed.fields, created_by: user.id })
     .select("id")
     .single();
 
@@ -183,6 +190,20 @@ export async function createRapport(
     // plutôt que de laisser un rapport sans ses infractions.
     await createAdminClient().from("rapports").delete().eq("id", data.id);
     return { error: "Impossible d'enregistrer les infractions du rapport." };
+  }
+
+  const attached = await registerAttachmentRows(
+    supabase,
+    user.id,
+    "rapport",
+    data.id,
+    attachmentDrafts,
+  );
+  if ("error" in attached) {
+    // Même logique : la fiche est annulée, les fichiers restent dans le
+    // stockage pour un nouvel essai avec le même identifiant.
+    await createAdminClient().from("rapports").delete().eq("id", data.id);
+    return { error: `${attached.error} ${ATTACHMENTS_SAVE_FAILED}` };
   }
 
   revalidatePath("/archives/rapports");
@@ -322,14 +343,30 @@ export async function createPlainte(
   const tooLong = checkTextLimits("plaintes", parsed.fields);
   if (tooLong) return { error: tooLong };
 
+  const attachmentDrafts = readAttachmentDrafts(formData);
+
   const { data, error } = await supabase
     .from("plaintes")
-    .insert({ ...parsed.fields, created_by: user.id })
+    .insert({ ...readNewRecordId(formData), ...parsed.fields, created_by: user.id })
     .select("id")
     .single();
 
   if (error || !data) {
     return { error: "Impossible de créer la plainte." };
+  }
+
+  const attached = await registerAttachmentRows(
+    supabase,
+    user.id,
+    "plainte",
+    data.id,
+    attachmentDrafts,
+  );
+  if ("error" in attached) {
+    // Plainte tout juste créée, encore référencée nulle part : annulée,
+    // les fichiers restent dans le stockage pour un nouvel essai.
+    await createAdminClient().from("plaintes").delete().eq("id", data.id);
+    return { error: `${attached.error} ${ATTACHMENTS_SAVE_FAILED}` };
   }
 
   revalidatePath("/archives/plaintes");

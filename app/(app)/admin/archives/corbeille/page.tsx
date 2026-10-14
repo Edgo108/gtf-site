@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminPage } from "@/lib/auth/require-page";
 import { getPseudoMap } from "@/lib/archives/agents";
 import { TrashTable } from "@/components/ui/TrashTable";
+import { OrphanCleanupButton } from "@/components/attachments/OrphanCleanupButton";
 import {
   permanentlyDeletePlainte,
   permanentlyDeleteRapport,
@@ -48,9 +49,12 @@ export default async function CorbeilleArchivesPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
-        Corbeille — Archives
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-bold uppercase tracking-wide">
+          Corbeille — Archives
+        </h1>
+        <OrphanCleanupButton />
+      </div>
 
       <h2 className="mt-6 font-display text-sm font-semibold uppercase tracking-wider text-gtf-text-muted">
         Rapports — {rapports?.length ?? 0} supprimé(s)

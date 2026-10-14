@@ -20,6 +20,8 @@ import { btn } from "@/lib/ui/styles";
 import { formatParisDateTime } from "@/lib/datetime";
 import { fetchCasierCode, INVESTIGATION_COLUMNS } from "@/lib/investigations/casier";
 import { TRASHED_ORGANISATION_LABEL } from "@/lib/supabase/gangs-types";
+import { canReadAttachments, loadAttachments } from "@/lib/attachments/server";
+import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
 
 export default async function EnqueteDetailPage({
   params,
@@ -69,6 +71,12 @@ export default async function EnqueteDetailPage({
     ? await supabase.from("gangs").select("id, nom").in("id", labOrgIds)
     : { data: [] as { id: string; nom: string }[] };
   const labOrgNomById = new Map((labOrgs ?? []).map((g) => [g.id, g.nom]));
+
+  // SASP / DOJ : aucun accès aux pièces jointes des enquêtes.
+  const showAttachments = canReadAttachments("investigation", profile ?? {});
+  const attachments = showAttachments
+    ? await loadAttachments(supabase, "investigation", id)
+    : [];
 
   const canDelete =
     canWrite &&
@@ -180,6 +188,17 @@ export default async function EnqueteDetailPage({
             Voir sur la carte
           </Link>
         </Panel>
+      )}
+
+      {showAttachments && (
+        <div className="mt-4">
+          <AttachmentsSection
+            parentType="investigation"
+            parentId={investigation.id}
+            initial={attachments}
+            canEdit={canWrite}
+          />
+        </div>
       )}
 
       <Panel title="Historique" className="mt-4">

@@ -11,6 +11,8 @@ import { softDeleteRapport } from "@/app/(app)/archives/actions";
 import { Signature } from "@/components/archives/Signature";
 import { formatNumero, type Rapport } from "@/lib/supabase/archives-types";
 import { btn } from "@/lib/ui/styles";
+import { loadAttachments } from "@/lib/attachments/server";
+import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
 import { InfractionList } from "@/components/archives/InfractionList";
 import {
   getCodePenalArticlesByIds,
@@ -43,7 +45,10 @@ export default async function RapportDetailPage({
     notFound();
   }
 
-  const infractions = await getRapportInfractions(rapport.id);
+  const [infractions, attachments] = await Promise.all([
+    getRapportInfractions(rapport.id),
+    loadAttachments(supabase, "rapport", rapport.id),
+  ]);
   const articles = await getCodePenalArticlesByIds(
     infractions.map((l) => l.article_id),
   );
@@ -160,6 +165,15 @@ export default async function RapportDetailPage({
           <Signature name={rapport.signature_agent_redacteur} />
         </div>
       </Panel>
+
+      <div className="mt-4">
+        <AttachmentsSection
+          parentType="rapport"
+          parentId={rapport.id}
+          initial={attachments}
+          canEdit
+        />
+      </div>
     </div>
   );
 }

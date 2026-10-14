@@ -11,6 +11,8 @@ import { softDeletePlainte } from "@/app/(app)/archives/actions";
 import { Signature } from "@/components/archives/Signature";
 import { formatNumero, type Plainte } from "@/lib/supabase/archives-types";
 import { btn } from "@/lib/ui/styles";
+import { loadAttachments } from "@/lib/attachments/server";
+import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
 
 export default async function PlainteDetailPage({
   params,
@@ -38,9 +40,9 @@ export default async function PlainteDetailPage({
     notFound();
   }
 
-  const pseudoById = await getPseudoMap([
-    plainte.agent_redacteur_id,
-    plainte.created_by,
+  const [pseudoById, attachments] = await Promise.all([
+    getPseudoMap([plainte.agent_redacteur_id, plainte.created_by]),
+    loadAttachments(supabase, "plainte", plainte.id),
   ]);
   const pseudo = (agentId: string | null) =>
     (agentId && pseudoById.get(agentId)) || "Agent inconnu";
@@ -125,6 +127,15 @@ export default async function PlainteDetailPage({
           </ArchiveField>
         </div>
       </Panel>
+
+      <div className="mt-4">
+        <AttachmentsSection
+          parentType="plainte"
+          parentId={plainte.id}
+          initial={attachments}
+          canEdit
+        />
+      </div>
     </div>
   );
 }

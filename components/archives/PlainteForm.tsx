@@ -10,14 +10,20 @@ import { useActionRunner } from "@/lib/ui/use-action-runner";
 import { fieldClass, labelClass } from "@/lib/ui/styles";
 import { SignatureField } from "./SignatureField";
 import { VERSION_FIELD } from "@/lib/concurrency";
+import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
+import { useAttachmentDrafts } from "@/lib/attachments/use-attachment-drafts";
+import type { AttachmentView } from "@/lib/attachments/types";
 
 export function PlainteForm({
   plainte,
+  attachments,
   agents,
   defaultDateRedaction,
   defaultRedacteurId,
 }: {
   plainte?: Plainte;
+  // Pièces jointes déjà enregistrées (modification).
+  attachments?: AttachmentView[];
   agents: AgentOption[];
   defaultDateRedaction?: string;
   // Agent connecté : pré-sélectionné comme rédacteur à la création.
@@ -27,6 +33,7 @@ export function PlainteForm({
   const run = useActionRunner();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const drafts = useAttachmentDrafts("plainte");
   const [nomVictime, setNomVictime] = useState(plainte?.nom_victime ?? "");
   const [redacteurId, setRedacteurId] = useState(
     plainte?.agent_redacteur_id ??
@@ -43,6 +50,11 @@ export function PlainteForm({
       formData.set("id", plainte.id);
       // Version ouverte : refus à l'enregistrement si la fiche a changé.
       formData.set(VERSION_FIELD, plainte.updated_at);
+    } else {
+      // Identifiant généré à l'ouverture du formulaire : les pièces
+      // jointes déjà envoyées sont rangées sous ce chemin.
+      formData.set("id", drafts.parentId);
+      drafts.markSubmitting(true);
     }
 
     startTransition(async () => {
@@ -51,7 +63,10 @@ export function PlainteForm({
         success: plainte ? "Plainte mise à jour" : "Plainte enregistrée",
         inline: true,
       });
-      if (result?.error) setError(result.error);
+      if (result?.error) {
+        setError(result.error);
+        drafts.markSubmitting(false);
+      }
     });
   }
 
@@ -163,10 +178,24 @@ export function PlainteForm({
         />
       </div>
 
+      {plainte ? (
+        <AttachmentsSection
+          parentType="plainte"
+          parentId={plainte.id}
+          initial={attachments ?? []}
+          canEdit
+        />
+      ) : (
+        <AttachmentsSection drafts={drafts} canEdit />
+      )}
+
       <FormFooter
         error={error}
-        pending={pending}
-        onCancel={() => router.back()}
+        pending={pending || drafts.uploading > 0}
+        onCancel={() => {
+          drafts.discardAll();
+          router.back();
+        }}
       />
     </form>
   );

@@ -13,6 +13,9 @@ import { fieldClass, labelClass } from "@/lib/ui/styles";
 import { AgentMultiSelect } from "./AgentMultiSelect";
 import { SignatureField } from "./SignatureField";
 import { VERSION_FIELD } from "@/lib/concurrency";
+import { AttachmentsSection } from "@/components/attachments/AttachmentsSection";
+import { useAttachmentDrafts } from "@/lib/attachments/use-attachment-drafts";
+import type { AttachmentView } from "@/lib/attachments/types";
 import { InfractionPicker } from "./InfractionPicker";
 import type {
   CodePenalPickerArticle,
@@ -21,6 +24,7 @@ import type {
 
 export function RapportForm({
   rapport,
+  attachments,
   agents,
   articles,
   infractions,
@@ -28,6 +32,8 @@ export function RapportForm({
   defaultRedacteurId,
 }: {
   rapport?: Rapport;
+  // Pièces jointes déjà enregistrées (modification).
+  attachments?: AttachmentView[];
   agents: AgentOption[];
   // Code Pénal (sélecteur des faits reprochés).
   articles: CodePenalPickerArticle[];
@@ -43,6 +49,7 @@ export function RapportForm({
   const run = useActionRunner();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const drafts = useAttachmentDrafts("rapport");
   const nameSuggestions = useNameSuggestions();
   const [redacteurId, setRedacteurId] = useState(
     rapport?.agent_redacteur_id ??
@@ -59,6 +66,11 @@ export function RapportForm({
       formData.set("id", rapport.id);
       // Version ouverte : refus à l'enregistrement si la fiche a changé.
       formData.set(VERSION_FIELD, rapport.updated_at);
+    } else {
+      // Identifiant généré à l'ouverture du formulaire : les pièces
+      // jointes déjà envoyées sont rangées sous ce chemin.
+      formData.set("id", drafts.parentId);
+      drafts.markSubmitting(true);
     }
 
     startTransition(async () => {
@@ -67,7 +79,10 @@ export function RapportForm({
         success: rapport ? "Rapport mis à jour" : "Rapport créé",
         inline: true,
       });
-      if (result?.error) setError(result.error);
+      if (result?.error) {
+        setError(result.error);
+        drafts.markSubmitting(false);
+      }
     });
   }
 
@@ -206,10 +221,24 @@ export function RapportForm({
         missingSourceHint="Sélectionnez d'abord l'agent rédacteur."
       />
 
+      {rapport ? (
+        <AttachmentsSection
+          parentType="rapport"
+          parentId={rapport.id}
+          initial={attachments ?? []}
+          canEdit
+        />
+      ) : (
+        <AttachmentsSection drafts={drafts} canEdit />
+      )}
+
       <FormFooter
         error={error}
-        pending={pending}
-        onCancel={() => router.back()}
+        pending={pending || drafts.uploading > 0}
+        onCancel={() => {
+          drafts.discardAll();
+          router.back();
+        }}
       />
     </form>
   );

@@ -5,6 +5,7 @@ import { InvestigationForm } from "@/components/investigations/InvestigationForm
 import { uniteCanWrite } from "@/lib/permissions";
 import type { Investigation } from "@/lib/supabase/investigations-types";
 import { fetchCasierCode, INVESTIGATION_COLUMNS } from "@/lib/investigations/casier";
+import { loadAttachments } from "@/lib/attachments/server";
 
 export default async function ModifierEnquetePage({
   params,
@@ -35,9 +36,13 @@ export default async function ModifierEnquetePage({
   if (!row) {
     notFound();
   }
+  const [casierCode, attachments] = await Promise.all([
+    fetchCasierCode(supabase, id),
+    loadAttachments(supabase, "investigation", id),
+  ]);
   const investigation: Investigation = {
     ...row,
-    casier_code_acces: await fetchCasierCode(supabase, id),
+    casier_code_acces: casierCode,
   };
 
   return (
@@ -46,7 +51,10 @@ export default async function ModifierEnquetePage({
         Modifier l&apos;enquête
       </h1>
       <div className="mt-6">
-        <InvestigationForm investigation={investigation} />
+        <InvestigationForm
+          investigation={investigation}
+          attachments={attachments}
+        />
       </div>
     </div>
   );

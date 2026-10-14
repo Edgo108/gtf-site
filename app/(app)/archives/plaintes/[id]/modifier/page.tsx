@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAgentOptions } from "@/lib/archives/agents";
 import { PlainteForm } from "@/components/archives/PlainteForm";
 import { formatNumero, type Plainte } from "@/lib/supabase/archives-types";
+import { loadAttachments } from "@/lib/attachments/server";
 
 export default async function ModifierPlaintePage({
   params,
@@ -22,7 +23,10 @@ export default async function ModifierPlaintePage({
     notFound();
   }
 
-  const agents = await getAgentOptions([plainte.agent_redacteur_id]);
+  const [agents, attachments] = await Promise.all([
+    getAgentOptions([plainte.agent_redacteur_id]),
+    loadAttachments(supabase, "plainte", plainte.id),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -30,7 +34,11 @@ export default async function ModifierPlaintePage({
         Modifier la plainte #{formatNumero(plainte.numero)}
       </h1>
       <div className="mt-6">
-        <PlainteForm plainte={plainte} agents={agents} />
+        <PlainteForm
+          plainte={plainte}
+          attachments={attachments}
+          agents={agents}
+        />
       </div>
     </div>
   );

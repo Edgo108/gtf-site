@@ -85,7 +85,7 @@ grant select on public.rapports to authenticated;
 -- Insert par colonne : `numero` reste toujours celui de la séquence,
 -- `deleted_at` / horodatages techniques ne sont pas forgeables.
 grant insert (
-  date_redaction, date_intervention, agent_redacteur_id, agents_lies,
+  id, date_redaction, date_intervention, agent_redacteur_id, agents_lies,
   nom_suspect, date_lecture_miranda, faits_reproches, descriptif_situation,
   signature_agent_redacteur, created_by
 ) on public.rapports to authenticated;
@@ -127,7 +127,7 @@ revoke all on public.plaintes from authenticated;
 
 grant select on public.plaintes to authenticated;
 grant insert (
-  date_redaction, date_faits, nom_victime, agent_redacteur_id,
+  id, date_redaction, date_faits, nom_victime, agent_redacteur_id,
   descriptif_plainte, signature_victime, signature_agent_assermente,
   created_by
 ) on public.plaintes to authenticated;

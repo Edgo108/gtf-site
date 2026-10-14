@@ -19,6 +19,12 @@ import { requireActiveUser } from "@/lib/auth/require";
 import { readExpectedVersion, STALE_EDIT_ERROR } from "@/lib/concurrency";
 import { fetchCasierCode, INVESTIGATION_COLUMNS } from "@/lib/investigations/casier";
 import { checkTextLimits } from "@/lib/limits";
+import {
+  ATTACHMENTS_SAVE_FAILED,
+  readAttachmentDrafts,
+  readNewRecordId,
+  registerAttachmentRows,
+} from "@/lib/attachments/server";
 
 type ActionResult = { error?: string };
 
@@ -83,14 +89,31 @@ export async function createInvestigation(
     return { error: "Le titre est obligatoire." };
   }
 
+  const attachmentDrafts = readAttachmentDrafts(formData);
+
   const { data, error } = await supabase
     .from("investigations")
-    .insert({ ...fields, created_by: user.id })
+    .insert({ ...readNewRecordId(formData), ...fields, created_by: user.id })
     .select("id")
     .single();
 
   if (error || !data) {
     return { error: "Impossible de créer l'enquête." };
+  }
+
+  const attached = await registerAttachmentRows(
+    supabase,
+    user.id,
+    "investigation",
+    data.id,
+    attachmentDrafts,
+  );
+  if ("error" in attached) {
+    // Enquête tout juste créée, encore référencée nulle part : annulée,
+    // les fichiers restent dans le stockage pour un nouvel essai avec le
+    // même identifiant.
+    await createAdminClient().from("investigations").delete().eq("id", data.id);
+    return { error: `${attached.error} ${ATTACHMENTS_SAVE_FAILED}` };
   }
 
   await supabase.from("investigation_history").insert({

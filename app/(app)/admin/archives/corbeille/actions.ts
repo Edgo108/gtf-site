@@ -3,10 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/require";
+import { removeParentFiles } from "@/lib/attachments/server";
 
 type ActionResult = { error?: string; success?: boolean };
 
 type ArchiveTable = "rapports" | "plaintes";
+
+const PARENT_TYPES = { rapports: "rapport", plaintes: "plainte" } as const;
 
 const LABELS: Record<ArchiveTable, string> = {
   rapports: "le rapport",
@@ -47,14 +50,20 @@ async function destroy(table: ArchiveTable, formData: FormData) {
   const admin = createAdminClient();
   // Garde-fou : seule une fiche déjà en corbeille peut être supprimée
   // définitivement.
-  const { error } = await admin
+  const { data, error } = await admin
     .from(table)
     .delete()
     .eq("id", id)
-    .not("deleted_at", "is", null);
+    .not("deleted_at", "is", null)
+    .select("id");
 
   if (error) {
     return { error: `Impossible de supprimer définitivement ${LABELS[table]}.` };
+  }
+  // Fiche effacée : ses pièces jointes aussi (lignes par trigger,
+  // fichiers ici).
+  if (data && data.length > 0) {
+    await removeParentFiles(PARENT_TYPES[table], id);
   }
 
   revalidatePath("/admin/archives/corbeille");

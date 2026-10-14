@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/require";
+import { removeParentFiles } from "@/lib/attachments/server";
 
 type ActionResult = { error?: string; success?: boolean };
 
@@ -47,6 +48,8 @@ export async function permanentlyDeleteInvestigation(
   if (error) {
     return { error: "Impossible de supprimer définitivement l'enquête." };
   }
+  // Pièces jointes : lignes supprimées par trigger, fichiers ici.
+  await removeParentFiles("investigation", id);
 
   revalidatePath("/admin/enquetes/corbeille");
   return { success: true };

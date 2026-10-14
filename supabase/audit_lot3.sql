@@ -25,7 +25,7 @@ drop policy if exists "profiles_update_own" on public.profiles;
 
 revoke insert on public.investigations from authenticated;
 grant insert (
-  titre, statut, suspects, preuves, description, agent_responsable,
+  id, titre, statut, suspects, preuves, description, agent_responsable,
   casier_numero, casier_code_acces, created_by
 ) on public.investigations to authenticated;
 

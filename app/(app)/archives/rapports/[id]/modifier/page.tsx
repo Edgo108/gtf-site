@@ -7,6 +7,7 @@ import {
   getRapportInfractions,
 } from "@/lib/archives/code-penal";
 import { formatNumero, type Rapport } from "@/lib/supabase/archives-types";
+import { loadAttachments } from "@/lib/attachments/server";
 
 export default async function ModifierRapportPage({
   params,
@@ -26,10 +27,11 @@ export default async function ModifierRapportPage({
     notFound();
   }
 
-  const [agents, articles, infractions] = await Promise.all([
+  const [agents, articles, infractions, attachments] = await Promise.all([
     getAgentOptions([rapport.agent_redacteur_id, ...rapport.agents_lies]),
     getCodePenalPickerArticles(),
     getRapportInfractions(rapport.id),
+    loadAttachments(supabase, "rapport", rapport.id),
   ]);
 
   return (
@@ -43,6 +45,7 @@ export default async function ModifierRapportPage({
           agents={agents}
           articles={articles}
           infractions={infractions}
+          attachments={attachments}
         />
       </div>
     </div>
